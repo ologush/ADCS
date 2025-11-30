@@ -214,15 +214,15 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
 }
 
 /**
-* @brief UART MSP Initialization
+* @brief USART MSP Initialization
 * This function configures the hardware resources used in this example
-* @param huart: UART handle pointer
+* @param husart: USART handle pointer
 * @retval None
 */
-void HAL_UART_MspInit(UART_HandleTypeDef* huart)
+void HAL_USART_MspInit(USART_HandleTypeDef* husart)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(huart->Instance==USART3)
+  if(husart->Instance==USART3)
   {
   /* USER CODE BEGIN USART3_MspInit 0 */
 
@@ -252,14 +252,14 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 }
 
 /**
-* @brief UART MSP De-Initialization
+* @brief USART MSP De-Initialization
 * This function freeze the hardware resources used in this example
-* @param huart: UART handle pointer
+* @param husart: USART handle pointer
 * @retval None
 */
-void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
+void HAL_USART_MspDeInit(USART_HandleTypeDef* husart)
 {
-  if(huart->Instance==USART3)
+  if(husart->Instance==USART3)
   {
   /* USER CODE BEGIN USART3_MspDeInit 0 */
 

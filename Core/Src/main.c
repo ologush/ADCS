@@ -44,7 +44,7 @@ I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 
-UART_HandleTypeDef huart3;
+USART_HandleTypeDef husart3;
 
 PCD_HandleTypeDef hpcd_USB_FS;
 
@@ -57,7 +57,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_USART3_UART_Init(void);
+static void MX_USART3_Init(void);
 static void MX_USB_PCD_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -99,7 +99,7 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C2_Init();
   MX_SPI1_Init();
-  MX_USART3_UART_Init();
+  MX_USART3_Init();
   MX_USB_PCD_Init();
   /* USER CODE BEGIN 2 */
 
@@ -259,7 +259,7 @@ static void MX_SPI1_Init(void)
   * @param None
   * @retval None
   */
-static void MX_USART3_UART_Init(void)
+static void MX_USART3_Init(void)
 {
 
   /* USER CODE BEGIN USART3_Init 0 */
@@ -269,17 +269,16 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 1 */
 
   /* USER CODE END USART3_Init 1 */
-  huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
-  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits = UART_STOPBITS_1;
-  huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_TX_RX;
-  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_LIN_Init(&huart3, UART_LINBREAKDETECTLENGTH_10B) != HAL_OK)
+  husart3.Instance = USART3;
+  husart3.Init.BaudRate = 115200;
+  husart3.Init.WordLength = USART_WORDLENGTH_8B;
+  husart3.Init.StopBits = USART_STOPBITS_1;
+  husart3.Init.Parity = USART_PARITY_NONE;
+  husart3.Init.Mode = USART_MODE_TX_RX;
+  husart3.Init.CLKPolarity = USART_POLARITY_LOW;
+  husart3.Init.CLKPhase = USART_PHASE_1EDGE;
+  husart3.Init.CLKLastBit = USART_LASTBIT_DISABLE;
+  if (HAL_USART_Init(&husart3) != HAL_OK)
   {
     Error_Handler();
   }
