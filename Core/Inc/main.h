@@ -63,6 +63,8 @@ void Error_Handler(void);
 #define Motor_Fault_Pin GPIO_PIN_15
 #define Motor_Fault_GPIO_Port GPIOB
 #define Motor_Fault_EXTI_IRQn EXTI15_10_IRQn
+#define LED_Pin GPIO_PIN_4
+#define LED_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
