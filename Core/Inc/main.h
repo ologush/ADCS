@@ -59,8 +59,10 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define IMU_Interrupt_Pin GPIO_PIN_1
 #define IMU_Interrupt_GPIO_Port GPIOB
+#define IMU_Interrupt_EXTI_IRQn EXTI1_IRQn
 #define Motor_Fault_Pin GPIO_PIN_15
 #define Motor_Fault_GPIO_Port GPIOB
+#define Motor_Fault_EXTI_IRQn EXTI15_10_IRQn
 
 /* USER CODE BEGIN Private defines */
 
