@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-//#include "ism330bx.h"
+#include "ism330bx.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -104,7 +104,7 @@ int main(void)
   MX_USART3_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-  //SFLP_INIT();
+  SFLP_INIT();
   /* USER CODE END 2 */
 
   /* Infinite loop */
