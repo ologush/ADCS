@@ -9,6 +9,8 @@
 #define BOOT_TIME           10
 #define FIFO_WATERMARK      32
 
+#define INT1_FIFO_TH        0x07u
+
 #define XL_RATE             ISM330BX_XL_ODR_AT_30Hz
 #define GY_RATE             ISM330BX_GY_ODR_AT_30Hz
 #define SFLP_RATE           ISM330BX_SFLP_30Hz
@@ -80,6 +82,7 @@ static SFLP_CONFIG_s sflp_config;
 
 /* Public Functions */
 ISM330BX_ERRORS_e SFLP_INIT(void);
+ISM330BX_ERRORS_e sflp_init_interrupt(void);
 
 
 

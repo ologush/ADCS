@@ -1,3 +1,6 @@
 [submodule "Libraries/ISM330bx"]
 	path = Libraries/ISM330bx
 	url = https://github.com/STMicroelectronics/ism330bx-pid/
+[submodule "Libraries/ISM330BX"]
+	path = Libraries/ISM330BX
+	url = https://github.com/STMicroelectronics/ism330bx-pid

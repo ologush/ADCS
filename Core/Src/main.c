@@ -49,6 +49,8 @@ USART_HandleTypeDef husart3;
 DMA_HandleTypeDef hdma_usart3_rx;
 DMA_HandleTypeDef hdma_usart3_tx;
 
+Quaternion current_attitude;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -77,7 +79,11 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  // Initialize current attitude quaternion
+  current_attitude.x = 0.0f;
+  current_attitude.y = 0.0f;
+  current_attitude.z = 0.0f;
+  current_attitude.w = 1.0f;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -105,6 +111,7 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
   SFLP_INIT();
+  sflp_init_interrupt();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -360,7 +367,9 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-  
+  if(GPIO_Pin == IMU_Interrupt_Pin) {
+      // Call IMU data handler
+  }
 }
 /* USER CODE END 4 */
 
