@@ -3,15 +3,21 @@
 #include "ism330bx_reg.h"
 #include "stm32f3xx_hal.h"
 #include "stm32f3xx_hal_i2c.h"
+#include <math.h>
 
 
 /* Macros */
 #define BOOT_TIME           10
-#define FIFO_WATERMARK      32
+#define FIFO_WATERMARK      3
+
+#define INT1_FIFO_TH        0x07u
 
 #define XL_RATE             ISM330BX_XL_ODR_AT_30Hz
 #define GY_RATE             ISM330BX_GY_ODR_AT_30Hz
 #define SFLP_RATE           ISM330BX_SFLP_30Hz
+
+#define FIFO_XL_BATCH_RATE  ISM330BX_XL_BATCHED_AT_30Hz
+#define FIFO_GY_BATCH_RATE  ISM330BX_GY_BATCHED_AT_30Hz
 
 /* Enums */
 typedef enum {
@@ -37,6 +43,9 @@ typedef struct {
     ism330bx_gy_data_rate_t gy_data_rate;
     ism330bx_sflp_data_rate_t sflp_data_rate;
 
+    ism330bx_fifo_xl_batch_t xl_batch_rate;
+    ism330bx_fifo_gy_batch_t gy_batch_rate;
+
 } SFLP_CONFIG_s;
 
 typedef struct {
@@ -46,11 +55,43 @@ typedef struct {
     float_t w;
 } Quaternion;
 
+typedef struct {
+    float_t x;
+    float_t y;
+    float_t z;
+} gravity_vector_s;
+
+typedef struct {
+    float_t x;
+    float_t y;
+    float_t z;
+} gyroscope_bias_s;
+
+typedef struct {
+    float_t x;
+    float_t y;
+    float_t z;
+} gyroscope_data_s;
+
+typedef struct {
+    float_t x;
+    float_t y;
+    float_t z;
+} accelerometer_data_s;
+
+typedef struct {
+    Quaternion game_rotation;
+    gyroscope_data_s gyroscope;
+    accelerometer_data_s accelerometer;
+} sflp_data_frame_s;
+
 /* Private Variables */
 static uint8_t whoamI;
 static uint8_t tx_buffer[1000];
 
 static ism330bx_fifo_sflp_raw_t fifo_sflp;
+
+static SFLP_CONFIG_s sflp_config;
 
 /* Public Variables */
 extern stmdev_ctx_t dev_ctx;
@@ -65,21 +106,21 @@ static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
 
 static void platform_delay(uint32_t ms);
 
+/* Private Functions */
 static ISM330BX_ERRORS_e get_game_rotation(Quaternion *quaternion_target, uint16_t data[3]);
-static ISM330BX_ERRORS_e get_gravity(float_t gravity_mg[3], uint16_t data[3]);  
-static ISM330BX_ERRORS_e get_gyroscope_bias(float_t gbias_mdps[3], uint16_t data[3]);
+static ISM330BX_ERRORS_e get_gravity(gravity_vector_s *target_vector, uint16_t data[3]);  
+static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, uint16_t data[3]);
 
 static uint32_t npy_halfbits_to_floatbits(uint16_t h);
 static float_t npy_half_to_float(uint16_t h);
 
-
-
-static SFLP_CONFIG_s sflp_config;
-
-
+static ISM330BX_ERRORS_e accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
+static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]);
 
 /* Public Functions */
 ISM330BX_ERRORS_e SFLP_INIT(void);
+ISM330BX_ERRORS_e sflp_init_interrupt(void);
+ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame);
 
 
 

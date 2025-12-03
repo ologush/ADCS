@@ -3,10 +3,10 @@
 #include "stm32f3xx_hal.h"
 #include "stm32f3xx_hal_i2c.h"
 #include <math.h>
+#include <stdint.h>
 
 stmdev_ctx_t dev_ctx;
 ism330bx_fifo_status_t fifo_status;
-ism330bx_reset_t rst;
 ism330bx_sflp_gbias_t gbias;
 
 static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
@@ -37,6 +37,8 @@ SFLP_CONFIG_s SFLP_config = {
     .gy_scale = ISM330BX_125dps,
     .xl_data_rate = XL_RATE,
     .gy_data_rate = GY_RATE,
+    .xl_batch_rate = FIFO_XL_BATCH_RATE,
+    .gy_batch_rate = FIFO_GY_BATCH_RATE,
     .sflp_data_rate = SFLP_RATE,
     .game_rotation = SFLP_MODE_ENABLE,
     .gravity = SFLP_MODE_DISABLE,
@@ -44,6 +46,8 @@ SFLP_CONFIG_s SFLP_config = {
 };
 
 ISM330BX_ERRORS_e SFLP_INIT(void) {
+
+    int32_t err;
     dev_ctx.write_reg = platform_write;
     dev_ctx.read_reg = platform_read;
     dev_ctx.mdelay = platform_delay;
@@ -58,19 +62,20 @@ ISM330BX_ERRORS_e SFLP_INIT(void) {
         return ISM330BX_ERR_ERROR;
     }
 
-    /* Reset the device */
+    /* Reset the device, wait until the reset is complete */
+    ism330bx_reset_t rst;
     ism330bx_reset_set(&dev_ctx, ISM330BX_RESTORE_CTRL_REGS);
     do {
         ism330bx_reset_get(&dev_ctx, &rst);
     } while (rst != ISM330BX_READY);
 
-    /* Configure device to enable SFLP */
+    /* Configure device to enable SFLP this function follows the steps in the datasheet, however the PAGE_ADDRESS it is using is not listed (strange)*/
     ism330bx_sflp_configure(&dev_ctx);
 
     /* Enable Block Data Update to ensure data is from the same sample */
     ism330bx_block_data_update_set(&dev_ctx, PROPERTY_ENABLE);
 
-    /* Set the scale of the accelerometer and gyroscope. Can be optimized later */
+    /* Set the scale of the accelerometer and gyroscope. Keep low for best accuracy */
     ism330bx_xl_full_scale_set(&dev_ctx, SFLP_config.xl_scale);
     ism330bx_gy_full_scale_set(&dev_ctx, SFLP_config.gy_scale);
 
@@ -86,7 +91,6 @@ ISM330BX_ERRORS_e SFLP_INIT(void) {
     } else {
         fifo_sflp.game_rotation = 0;
     }
-
     if(SFLP_config.gravity == SFLP_MODE_ENABLE) {
         fifo_sflp.gravity = 1;
     } else {
@@ -99,8 +103,11 @@ ISM330BX_ERRORS_e SFLP_INIT(void) {
     }
     ism330bx_fifo_sflp_batch_set(&dev_ctx, fifo_sflp);
 
-    /* Set FIFO to stream mode */
+    /* Set FIFO to stream (continuous) mode */
     ism330bx_fifo_mode_set(&dev_ctx, ISM330BX_STREAM_MODE);
+
+    /* Limits the FIFO size to the watermark set */
+    ism330bx_fifo_stop_on_wtm_set(&dev_ctx, PROPERTY_ENABLE);
 
     /* Set output rates.
         These can be optimized later
@@ -109,20 +116,141 @@ ISM330BX_ERRORS_e SFLP_INIT(void) {
     ism330bx_xl_data_rate_set(&dev_ctx, SFLP_config.xl_data_rate);
     ism330bx_gy_data_rate_set(&dev_ctx, SFLP_config.gy_data_rate);
     ism330bx_sflp_data_rate_set(&dev_ctx, SFLP_config.sflp_data_rate);
-
-    /* Enable tracking of game rotation with the SFLP - might not be necessary, circle back */
-    ism330bx_sflp_game_rotation_set(&dev_ctx, PROPERTY_ENABLE);
+    ism330bx_fifo_xl_batch_set(&dev_ctx, SFLP_config.xl_batch_rate);
+    ism330bx_fifo_gy_batch_set(&dev_ctx, SFLP_config.gy_batch_rate);
 
     return ISM330BX_ERR_OK;
 
 }
 
+ISM330BX_ERRORS_e sflp_init_interrupt(void) {
 
-static ISM330BX_ERRORS_e get_fifo_frame() {
+    // Set interrupt pin to push-pull and active high
+    int32_t err;
+    err = ism330bx_int_pin_mode_set(&dev_ctx, ISM330BX_PUSH_PULL);
+    if(err != 0) {
+        return ISM330BX_ERR_ERROR;
+    }
+
+    err = ism330bx_pin_polarity_set(&dev_ctx, ISM330BX_ACTIVE_HIGH);
+    if(err != 0) {
+        return ISM330BX_ERR_ERROR;
+    }
+
+    // Route FIFO watermark interrupt to INT1 pin
+    ism330bx_pin_int_route_t int1_route;
+    int1_route.fifo_th = PROPERTY_ENABLE;
+    err = ism330bx_pin_int1_route_set(&dev_ctx, int1_route);
+    if(err != 0) {
+        return ISM330BX_ERR_ERROR;
+    }
     return ISM330BX_ERR_OK;
 }
 
-static ISM330BX_ERRORS_e get_fifo_buffer() {
+
+ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame) {
+    ism330bx_fifo_status_t fifo_status;
+    int32_t err;
+    err = ism330bx_fifo_status_get(&dev_ctx, &fifo_status);
+    if(err != 0) {
+        return ISM330BX_ERR_ERROR;
+    }
+
+    if(fifo_status.fifo_th == 1) {
+        uint16_t num = fifo_status.fifo_level;
+        for(uint16_t i = 0; i < num; i++) {
+            ism330bx_fifo_out_raw_t fifo_data;
+
+            err = ism330bx_fifo_out_raw_get(&dev_ctx, &fifo_data);
+            if(err != 0) {
+                return ISM330BX_ERR_ERROR;
+            }
+
+            switch (fifo_data.tag) {
+                case ISM330BX_SFLP_GAME_ROTATION_VECTOR_TAG:
+                    get_game_rotation(&target_data_frame->game_rotation, (uint16_t*)&fifo_data.data[0]);
+                    break;
+                case ISM330BX_GY_NC_TAG: //Not sure what the differnt gyroscope tags are, assuming this first one is correct for now
+                    gyroscope_raw_to_float(&target_data_frame->gyroscope, (uint16_t*)&fifo_data.data[0]);
+                    break;
+                case ISM330BX_XL_NC_TAG: //Not sure what the differnt accelerometer tags are, assuming this first one is correct for now
+                    accelerometer_raw_to_float(&target_data_frame->accelerometer, (uint16_t*)&fifo_data.data[0]);
+                    break;
+                default:
+                    // Unknown tag, skip
+                    break;
+            }
+        }
+    }
+    return ISM330BX_ERR_OK;
+}
+
+ISM330BX_ERRORS_e get_fifo_buffer() {
+    return ISM330BX_ERR_OK;
+}
+
+static ISM330BX_ERRORS_e accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
+    switch(SFLP_config.xl_scale) {
+        case ISM330BX_2g:
+            target_vector->x = ism330bx_from_fs2_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs2_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs2_to_mg(data[2]);
+            break;
+        case ISM330BX_4g:
+            target_vector->x = ism330bx_from_fs4_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs4_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs4_to_mg(data[2]);
+            break;
+        case ISM330BX_8g:
+            target_vector->x = ism330bx_from_fs8_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs8_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs8_to_mg(data[2]);
+            break;
+        default:
+            return ISM330BX_ERR_ERROR;
+            break;
+    }
+
+    return ISM330BX_ERR_OK;
+}
+
+static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]) {
+        switch(SFLP_config.gy_scale) {
+        case ISM330BX_125dps:
+            target_vector->x = ism330bx_from_fs125_to_mdps(data[0]);
+            target_vector->y = ism330bx_from_fs125_to_mdps(data[1]);
+            target_vector->z = ism330bx_from_fs125_to_mdps(data[2]);
+            break;
+        case ISM330BX_250dps:
+            target_vector->x = ism330bx_from_fs250_to_mdps(data[0]);
+            target_vector->y = ism330bx_from_fs250_to_mdps(data[1]);
+            target_vector->z = ism330bx_from_fs250_to_mdps(data[2]);
+            break;
+        case ISM330BX_500dps:
+            target_vector->x = ism330bx_from_fs500_to_mdps(data[0]);
+            target_vector->y = ism330bx_from_fs500_to_mdps(data[1]);
+            target_vector->z = ism330bx_from_fs500_to_mdps(data[2]);
+            break;
+        case ISM330BX_1000dps:
+            target_vector->x = ism330bx_from_fs1000_to_mdps(data[0]);
+            target_vector->y = ism330bx_from_fs1000_to_mdps(data[1]);
+            target_vector->z = ism330bx_from_fs1000_to_mdps(data[2]);
+            break;
+        case ISM330BX_2000dps:
+            target_vector->x = ism330bx_from_fs2000_to_mdps(data[0]);
+            target_vector->y = ism330bx_from_fs2000_to_mdps(data[1]);
+            target_vector->z = ism330bx_from_fs2000_to_mdps(data[2]);
+            break;
+        case ISM330BX_4000dps:
+            target_vector->x = ism330bx_from_fs4000_to_mdps(data[0]);
+            target_vector->y = ism330bx_from_fs4000_to_mdps(data[1]);
+            target_vector->z = ism330bx_from_fs4000_to_mdps(data[2]);
+            break;
+
+        default:
+            return ISM330BX_ERR_ERROR;
+            break;
+    }
     return ISM330BX_ERR_OK;
 }
 
@@ -148,22 +276,22 @@ static ISM330BX_ERRORS_e get_game_rotation(Quaternion *quaternion_target, uint16
     return ISM330BX_ERR_OK;
 }
 
-static ISM330BX_ERRORS_e get_gravity(float_t gravity_mg[3], uint16_t data[3]) {
+static ISM330BX_ERRORS_e get_gravity(gravity_vector_s *target_vector, uint16_t data[3]) {
     switch(SFLP_config.xl_scale) {
         case ISM330BX_2g:
-            gravity_mg[0] = ism330bx_from_fs2_to_mg(data[0]);
-            gravity_mg[1] = ism330bx_from_fs2_to_mg(data[1]);
-            gravity_mg[2] = ism330bx_from_fs2_to_mg(data[2]);
+            target_vector->x = ism330bx_from_fs2_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs2_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs2_to_mg(data[2]);
             break;
         case ISM330BX_4g:
-            gravity_mg[0] = ism330bx_from_fs4_to_mg(data[0]);
-            gravity_mg[1] = ism330bx_from_fs4_to_mg(data[1]);
-            gravity_mg[2] = ism330bx_from_fs4_to_mg(data[2]);
+            target_vector->x = ism330bx_from_fs4_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs4_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs4_to_mg(data[2]);
             break;
         case ISM330BX_8g:
-            gravity_mg[0] = ism330bx_from_fs8_to_mg(data[0]);
-            gravity_mg[1] = ism330bx_from_fs8_to_mg(data[1]);
-            gravity_mg[2] = ism330bx_from_fs8_to_mg(data[2]);
+            target_vector->x = ism330bx_from_fs8_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs8_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs8_to_mg(data[2]);
             break;
         default:
             return ISM330BX_ERR_ERROR;
@@ -173,37 +301,37 @@ static ISM330BX_ERRORS_e get_gravity(float_t gravity_mg[3], uint16_t data[3]) {
     return ISM330BX_ERR_OK;
 }
 
-static ISM330BX_ERRORS_e get_gyroscope_bias(float_t gbias_mdps[3], uint16_t data[3]) {
+static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, uint16_t data[3]) {
         switch(SFLP_config.gy_scale) {
         case ISM330BX_125dps:
-            gbias_mdps[0] = ism330bx_from_fs125_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs125_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs125_to_mdps(data[2]);
+            target->x = ism330bx_from_fs125_to_mdps(data[0]);
+            target->y = ism330bx_from_fs125_to_mdps(data[1]);
+            target->z = ism330bx_from_fs125_to_mdps(data[2]);
             break;
         case ISM330BX_250dps:
-            gbias_mdps[0] = ism330bx_from_fs250_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs250_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs250_to_mdps(data[2]);
+            target->x = ism330bx_from_fs250_to_mdps(data[0]);
+            target->y = ism330bx_from_fs250_to_mdps(data[1]);
+            target->z = ism330bx_from_fs250_to_mdps(data[2]);
             break;
         case ISM330BX_500dps:
-            gbias_mdps[0] = ism330bx_from_fs500_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs500_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs500_to_mdps(data[2]);
+            target->x = ism330bx_from_fs500_to_mdps(data[0]);
+            target->y = ism330bx_from_fs500_to_mdps(data[1]);
+            target->z = ism330bx_from_fs500_to_mdps(data[2]);
             break;
         case ISM330BX_1000dps:
-            gbias_mdps[0] = ism330bx_from_fs1000_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs1000_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs1000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs1000_to_mdps(data[0]);
+            target->y = ism330bx_from_fs1000_to_mdps(data[1]);
+            target->z = ism330bx_from_fs1000_to_mdps(data[2]);
             break;
         case ISM330BX_2000dps:
-            gbias_mdps[0] = ism330bx_from_fs2000_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs2000_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs2000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs2000_to_mdps(data[0]);
+            target->y = ism330bx_from_fs2000_to_mdps(data[1]);
+            target->z = ism330bx_from_fs2000_to_mdps(data[2]);
             break;
         case ISM330BX_4000dps:
-            gbias_mdps[0] = ism330bx_from_fs4000_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs4000_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs4000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs4000_to_mdps(data[0]);
+            target->y = ism330bx_from_fs4000_to_mdps(data[1]);
+            target->z = ism330bx_from_fs4000_to_mdps(data[2]);
             break;
 
         default:
