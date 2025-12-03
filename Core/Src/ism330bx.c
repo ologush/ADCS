@@ -3,6 +3,7 @@
 #include "stm32f3xx_hal.h"
 #include "stm32f3xx_hal_i2c.h"
 #include <math.h>
+#include <stdint.h>
 
 stmdev_ctx_t dev_ctx;
 ism330bx_fifo_status_t fifo_status;
@@ -142,11 +143,44 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
 }
 
 
-static ISM330BX_ERRORS_e get_fifo_frame() {
+ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame) {
+    ism330bx_fifo_status_t fifo_status;
+    int32_t err;
+    err = ism330bx_fifo_status_get(&dev_ctx, &fifo_status);
+    if(err != 0) {
+        return ISM330BX_ERR_ERROR;
+    }
+
+    if(fifo_status.fifo_th == 1) {
+        uint16_t num = fifo_status.fifo_level;
+        for(uint16_t i = 0; i < num; i++) {
+            ism330bx_fifo_out_raw_t fifo_data;
+
+            err = ism330bx_fifo_out_raw_get(&dev_ctx, &fifo_data);
+            if(err != 0) {
+                return ISM330BX_ERR_ERROR;
+            }
+
+            switch (fifo_data.tag) {
+                case ISM330BX_SFLP_GAME_ROTATION_VECTOR_TAG:
+                    get_game_rotation(&target_data_frame->game_rotation, (uint16_t*)&fifo_data.data[0]);
+                    break;
+                case ISM330BX_SFLP_GRAVITY_VECTOR_TAG:
+                    get_gravity(&target_data_frame->gravity, (uint16_t*)&fifo_data.data[0]);
+                    break;
+                case ISM330BX_SFLP_GYROSCOPE_BIAS_TAG:
+                    get_gyroscope_bias(&target_data_frame->gbias, (uint16_t*)&fifo_data.data[0]);
+                    break;
+                default:
+                    // Unknown tag, skip
+                    break;
+            }
+        }
+    }
     return ISM330BX_ERR_OK;
 }
 
-static ISM330BX_ERRORS_e get_fifo_buffer() {
+ISM330BX_ERRORS_e get_fifo_buffer() {
     return ISM330BX_ERR_OK;
 }
 
@@ -172,22 +206,22 @@ static ISM330BX_ERRORS_e get_game_rotation(Quaternion *quaternion_target, uint16
     return ISM330BX_ERR_OK;
 }
 
-static ISM330BX_ERRORS_e get_gravity(float_t gravity_mg[3], uint16_t data[3]) {
+static ISM330BX_ERRORS_e get_gravity(gravity_vector_s *target_vector, uint16_t data[3]) {
     switch(SFLP_config.xl_scale) {
         case ISM330BX_2g:
-            gravity_mg[0] = ism330bx_from_fs2_to_mg(data[0]);
-            gravity_mg[1] = ism330bx_from_fs2_to_mg(data[1]);
-            gravity_mg[2] = ism330bx_from_fs2_to_mg(data[2]);
+            target_vector->x = ism330bx_from_fs2_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs2_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs2_to_mg(data[2]);
             break;
         case ISM330BX_4g:
-            gravity_mg[0] = ism330bx_from_fs4_to_mg(data[0]);
-            gravity_mg[1] = ism330bx_from_fs4_to_mg(data[1]);
-            gravity_mg[2] = ism330bx_from_fs4_to_mg(data[2]);
+            target_vector->x = ism330bx_from_fs4_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs4_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs4_to_mg(data[2]);
             break;
         case ISM330BX_8g:
-            gravity_mg[0] = ism330bx_from_fs8_to_mg(data[0]);
-            gravity_mg[1] = ism330bx_from_fs8_to_mg(data[1]);
-            gravity_mg[2] = ism330bx_from_fs8_to_mg(data[2]);
+            target_vector->x = ism330bx_from_fs8_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs8_to_mg(data[1]);
+            target_vector->z = ism330bx_from_fs8_to_mg(data[2]);
             break;
         default:
             return ISM330BX_ERR_ERROR;
@@ -197,37 +231,37 @@ static ISM330BX_ERRORS_e get_gravity(float_t gravity_mg[3], uint16_t data[3]) {
     return ISM330BX_ERR_OK;
 }
 
-static ISM330BX_ERRORS_e get_gyroscope_bias(float_t gbias_mdps[3], uint16_t data[3]) {
+static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, uint16_t data[3]) {
         switch(SFLP_config.gy_scale) {
         case ISM330BX_125dps:
-            gbias_mdps[0] = ism330bx_from_fs125_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs125_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs125_to_mdps(data[2]);
+            target->x = ism330bx_from_fs125_to_mdps(data[0]);
+            target->y = ism330bx_from_fs125_to_mdps(data[1]);
+            target->z = ism330bx_from_fs125_to_mdps(data[2]);
             break;
         case ISM330BX_250dps:
-            gbias_mdps[0] = ism330bx_from_fs250_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs250_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs250_to_mdps(data[2]);
+            target->x = ism330bx_from_fs250_to_mdps(data[0]);
+            target->y = ism330bx_from_fs250_to_mdps(data[1]);
+            target->z = ism330bx_from_fs250_to_mdps(data[2]);
             break;
         case ISM330BX_500dps:
-            gbias_mdps[0] = ism330bx_from_fs500_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs500_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs500_to_mdps(data[2]);
+            target->x = ism330bx_from_fs500_to_mdps(data[0]);
+            target->y = ism330bx_from_fs500_to_mdps(data[1]);
+            target->z = ism330bx_from_fs500_to_mdps(data[2]);
             break;
         case ISM330BX_1000dps:
-            gbias_mdps[0] = ism330bx_from_fs1000_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs1000_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs1000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs1000_to_mdps(data[0]);
+            target->y = ism330bx_from_fs1000_to_mdps(data[1]);
+            target->z = ism330bx_from_fs1000_to_mdps(data[2]);
             break;
         case ISM330BX_2000dps:
-            gbias_mdps[0] = ism330bx_from_fs2000_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs2000_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs2000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs2000_to_mdps(data[0]);
+            target->y = ism330bx_from_fs2000_to_mdps(data[1]);
+            target->z = ism330bx_from_fs2000_to_mdps(data[2]);
             break;
         case ISM330BX_4000dps:
-            gbias_mdps[0] = ism330bx_from_fs4000_to_mdps(data[0]);
-            gbias_mdps[1] = ism330bx_from_fs4000_to_mdps(data[1]);
-            gbias_mdps[2] = ism330bx_from_fs4000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs4000_to_mdps(data[0]);
+            target->y = ism330bx_from_fs4000_to_mdps(data[1]);
+            target->z = ism330bx_from_fs4000_to_mdps(data[2]);
             break;
 
         default:

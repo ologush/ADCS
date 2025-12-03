@@ -3,6 +3,7 @@
 #include "ism330bx_reg.h"
 #include "stm32f3xx_hal.h"
 #include "stm32f3xx_hal_i2c.h"
+#include <math.h>
 
 
 /* Macros */
@@ -48,6 +49,24 @@ typedef struct {
     float_t w;
 } Quaternion;
 
+typedef struct {
+    float_t x;
+    float_t y;
+    float_t z;
+} gravity_vector_s;
+
+typedef struct {
+    float_t x;
+    float_t y;
+    float_t z;
+} gyroscope_bias_s;
+
+typedef struct {
+    Quaternion game_rotation;
+    gravity_vector_s gravity;
+    gyroscope_bias_s gbias;
+} sflp_data_frame_s;
+
 /* Private Variables */
 static uint8_t whoamI;
 static uint8_t tx_buffer[1000];
@@ -68,8 +87,8 @@ static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
 static void platform_delay(uint32_t ms);
 
 static ISM330BX_ERRORS_e get_game_rotation(Quaternion *quaternion_target, uint16_t data[3]);
-static ISM330BX_ERRORS_e get_gravity(float_t gravity_mg[3], uint16_t data[3]);  
-static ISM330BX_ERRORS_e get_gyroscope_bias(float_t gbias_mdps[3], uint16_t data[3]);
+static ISM330BX_ERRORS_e get_gravity(gravity_vector_s *target_vector, uint16_t data[3]);  
+static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, uint16_t data[3]);
 
 static uint32_t npy_halfbits_to_floatbits(uint16_t h);
 static float_t npy_half_to_float(uint16_t h);
@@ -83,6 +102,7 @@ static SFLP_CONFIG_s sflp_config;
 /* Public Functions */
 ISM330BX_ERRORS_e SFLP_INIT(void);
 ISM330BX_ERRORS_e sflp_init_interrupt(void);
+ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame);
 
 
 

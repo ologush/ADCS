@@ -49,10 +49,9 @@ USART_HandleTypeDef husart3;
 DMA_HandleTypeDef hdma_usart3_rx;
 DMA_HandleTypeDef hdma_usart3_tx;
 
-Quaternion current_attitude;
-
 /* USER CODE BEGIN PV */
-
+sflp_data_frame_s current_sflp_data;
+sflp_data_frame_s new_sflp_data;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -80,10 +79,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
   // Initialize current attitude quaternion
-  current_attitude.x = 0.0f;
-  current_attitude.y = 0.0f;
-  current_attitude.z = 0.0f;
-  current_attitude.w = 1.0f;
+  
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -355,7 +351,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(Motor_Fault_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI1_IRQn, 1, 1);
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
@@ -369,6 +365,12 @@ static void MX_GPIO_Init(void)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if(GPIO_Pin == IMU_Interrupt_Pin) {
       // Call IMU data handler
+      get_fifo_frame(&new_sflp_data);
+      
+      // May need to disable interrupt, but will kep this as the highest priority for now
+      memcpy(&current_sflp_data, &new_sflp_data, sizeof(sflp_data_frame_s));
+      
+
   }
 }
 /* USER CODE END 4 */
