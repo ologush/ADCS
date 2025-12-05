@@ -20,6 +20,8 @@
 #define MEM_ADDR_MASK     0x000FFF
 
 
+
+
 /* Typedefs */
 typedef struct {
     //Actual measured values
@@ -71,6 +73,8 @@ I2C_HandleTypeDef *hi2c_motor_ctrl;
 /* Private function prototypes*/
 static motor_ctrl_err_e motor_write_data_word(i2c_data_word_s *data_word);
 static motor_ctrl_err_e motor_read_data_word(i2c_data_word_s *data_word, uint8_t *receive_buffer);
+static motor_ctrl_err_e calculate_crc(i2c_data_word_s *data_word);
+
 
 /* Public function prototypes */
 motor_ctrl_err_e motor_control_init(I2C_HandleTypeDef *hi2c);

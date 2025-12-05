@@ -111,6 +111,12 @@ static motor_ctrl_err_e motor_read_data_word(i2c_data_word_s *data_word_tx, uint
     }
 }
 
+static motor_ctrl_err_e calculate_crc(i2c_data_word_s *data_word) {
+
+    /* Todo: Implement Algorithm */
+    return MOTOR_CTRL_ERR_OK;
+}
+
 /* Global function definitions */
 
 motor_ctrl_err_e motor_ctrl_init(I2C_HandleTypeDef *hi2c)
