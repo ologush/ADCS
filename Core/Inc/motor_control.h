@@ -12,12 +12,20 @@
 #define D_LEN_32_BIT      0x01
 #define D_LEN_64_BIT      0x02
 
+#define OP_RW_WRITE      0x00
+#define OP_RW_READ       0x01
+
+#define CRC_EN_DISABLE  0x00
+#define CRC_EN_ENABLE   0x01
+
 #define OP_RW_MASK        0x800000
 #define CRC_EN_MASK       0x400000
 #define D_LEN_MASK        0x300000
 #define MEM_SEC_MASK      0x0F0000
 #define MEM_PAGE_MASK     0x00F000
 #define MEM_ADDR_MASK     0x000FFF
+
+#define MAX_RPM          4000.0f
 
 
 
@@ -42,15 +50,15 @@ typedef struct {
     uint8_t mem_sec         :   4;
     uint8_t mem_page        :   4;
     uint16_t mem_addr       :   12;
-} i2c_control_word_format_s;
+} motor_control_word_s;
 
 typedef struct {
     uint8_t target_id       :   7;
     uint8_t read_write_bit  :   1;
-    i2c_control_word_format_s control_word;
+    motor_control_word_s control_word;
     uint8_t data[8];
     uint8_t crc             :   8;
-} i2c_data_word_s;
+} motor_data_word_s;
 
 
 
@@ -71,9 +79,10 @@ I2C_HandleTypeDef *hi2c_motor_ctrl;
 /* Global Variables */
 
 /* Private function prototypes*/
-static motor_ctrl_err_e motor_write_data_word(i2c_data_word_s *data_word);
-static motor_ctrl_err_e motor_read_data_word(i2c_data_word_s *data_word, uint8_t *receive_buffer);
-static motor_ctrl_err_e calculate_crc(i2c_data_word_s *data_word);
+static motor_ctrl_err_e motor_write_data_word(motor_data_word_s *data_word);
+static motor_ctrl_err_e motor_read_data_word(motor_data_word_s *data_word, uint8_t *receive_buffer);
+static motor_ctrl_err_e calculate_crc(motor_data_word_s *data_word);
+static motor_ctrl_err_e generate_motor_data_word();
 
 
 /* Public function prototypes */
@@ -81,3 +90,5 @@ motor_ctrl_err_e motor_control_init(I2C_HandleTypeDef *hi2c);
 motor_ctrl_err_e motor_parameter_extraction(motor_parameters_s *motor_params);
 motor_ctrl_err_e write_config_to_eeprom(motor_config_s *motor_config);
 motor_ctrl_err_e read_config_from_eeprom(motor_config_s *motor_config);
+motor_ctrl_err_e motor_startup_sequence(void);
+motor_ctrl_err_e motor_set_speed(float_t speed_rpm);

@@ -2,11 +2,12 @@
 
 #include "motor_control.h"
 #include <math.h>
+#include "motor_reg_defs.h"
 
 
 /* Private function definitions */
 
-static motor_ctrl_err_e motor_write_data_word(i2c_data_word_s *data_word)
+static motor_ctrl_err_e motor_write_data_word(motor_data_word_s *data_word)
 {
     uint8_t data_length = 4;
     
@@ -61,7 +62,7 @@ static motor_ctrl_err_e motor_write_data_word(i2c_data_word_s *data_word)
     return MOTOR_CTRL_ERR_OK;
 }
 
-static motor_ctrl_err_e motor_read_data_word(i2c_data_word_s *data_word_tx, uint8_t *receive_buffer) {
+static motor_ctrl_err_e motor_read_data_word(motor_data_word_s *data_word_tx, uint8_t *receive_buffer) {
 
     uint8_t data_length = 0;
     
@@ -111,7 +112,7 @@ static motor_ctrl_err_e motor_read_data_word(i2c_data_word_s *data_word_tx, uint
     }
 }
 
-static motor_ctrl_err_e calculate_crc(i2c_data_word_s *data_word) {
+static motor_ctrl_err_e calculate_crc(motor_data_word_s *data_word) {
 
     /* Todo: Implement Algorithm */
     return MOTOR_CTRL_ERR_OK;
@@ -122,5 +123,52 @@ static motor_ctrl_err_e calculate_crc(i2c_data_word_s *data_word) {
 motor_ctrl_err_e motor_ctrl_init(I2C_HandleTypeDef *hi2c)
 {
     hi2c_motor_ctrl = hi2c;
+    return MOTOR_CTRL_ERR_OK;
+}
+
+motor_ctrl_err_e motor_startup_sequence(void) {
+    //First set speed ref > 0
+}
+
+motor_ctrl_err_e motor_set_speed(float_t speed_rpm) {
+
+    if(speed_rpm > MAX_RPM) {
+        return MOTOR_CTRL_ERR_ERROR;
+    }
+
+    uint32_t speed_mask = 0x8000FFFF; // Mask to clear speed bits
+
+    //Convert speed from RPM to register value
+    uint16_t speed = (uint16_t)roundf((speed_rpm / MAX_RPM) * 65535.0f);
+
+    motor_data_word_s retreival_data_word;
+    uint32_t current_register_value;
+    
+    retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
+    retreival_data_word.read_write_bit = OP_RW_WRITE;
+    retreival_data_word.control_word.op_rw = OP_RW_READ;
+    retreival_data_word.control_word.crc_en = CRC_EN_DISABLE;
+    retreival_data_word.control_word.d_len = D_LEN_32_BIT;
+    retreival_data_word.control_word.mem_sec = 0;
+    retreival_data_word.control_word.mem_page = 0;
+    retreival_data_word.control_word.mem_addr = MCF8315_ALGO_DEBUG1_REG;
+
+    motor_read_data_word(&retreival_data_word, (uint8_t*)&current_register_value);
+
+    current_register_value &= speed_mask;
+    current_register_value |= ((uint32_t)speed << 16);
+
+    motor_data_word_s tx_data_word;
+    tx_data_word.target_id = MCF8315D_I2C_ADDRESS; // Example target ID
+    tx_data_word.read_write_bit = OP_RW_WRITE;
+    tx_data_word.control_word.op_rw = OP_RW_WRITE;
+    tx_data_word.control_word.crc_en = CRC_EN_DISABLE;
+    tx_data_word.control_word.d_len = D_LEN_32_BIT;
+    tx_data_word.control_word.mem_sec = 0;
+    tx_data_word.control_word.mem_page = 0;
+    tx_data_word.control_word.mem_addr = MCF8315_ALGO_DEBUG1_REG;
+
+    motor_write_data_word(&tx_data_word);
+
     return MOTOR_CTRL_ERR_OK;
 }

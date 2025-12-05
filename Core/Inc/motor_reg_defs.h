@@ -46,8 +46,8 @@
 #define MCF8315_ALGO_CTRL1_REG                  0x0EA
 
 /* Algorithm Control Registers */
-#define MCF8315_ALG_DEBUG1_REG               0x0EC
-#define MCF8315_ALG_DEBUG2_REG               0x0EE
+#define MCF8315_ALGO_DEBUG1_REG               0x0EC
+#define MCF8315_ALGO_DEBUG2_REG               0x0EE
 #define MCF8315_CURRENT_PI_REG               0x0F0
 #define MCF8315_SPEED_PI_REG                 0x0F2
 #define MCF8315_DAC_1_REG                    0x0F4
