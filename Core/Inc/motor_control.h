@@ -2,6 +2,7 @@
 
 #include "stm32f3xx_hal.h"
 #include "stm32f3xx_hal_i2c.h"
+#include <stdint.h>
 
 /* Macros */
 
@@ -68,7 +69,8 @@ I2C_HandleTypeDef *hi2c_motor_ctrl;
 /* Global Variables */
 
 /* Private function prototypes*/
-static motor_ctrl_err_e i2c_write_data_word(i2c_data_word_s *data_word);
+static motor_ctrl_err_e motor_write_data_word(i2c_data_word_s *data_word);
+static motor_ctrl_err_e motor_read_data_word(i2c_data_word_s *data_word, uint8_t *receive_buffer);
 
 /* Public function prototypes */
 motor_ctrl_err_e motor_control_init(I2C_HandleTypeDef *hi2c);
