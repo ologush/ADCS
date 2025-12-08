@@ -25,7 +25,7 @@
 #define MEM_PAGE_MASK     0x00F000
 #define MEM_ADDR_MASK     0x000FFF
 
-#define MAX_RPM          4000.0f
+#define MAX_RPM          7200.0f
 
 
 
@@ -35,12 +35,18 @@ typedef struct {
     //Actual measured values
     float_t motor_resistance;
     float_t motor_inductance;
-    float_t back_emf_constant;
+    float_t motor_bemf_constant;
+
+    float_t current_loop_ki;
+    float_t current_loop_kp;
+
+    float_t speed_loop_ki;
+    float_t speed_loop_kp;
 
     //LUT Locations of nearest values
     uint8_t motor_resistance_hex;
     uint8_t motor_inductance_hex;
-    uint8_t back_emf_constant_hex;
+    uint8_t motor_bemf_constant_hex;
 } motor_parameters_s;
 
 typedef struct {
@@ -60,11 +66,10 @@ typedef struct {
     uint8_t crc             :   8;
 } motor_data_word_s;
 
-
-
 typedef struct {
-
-} motor_config_s;
+    uint8_t reg_address;
+    uint32_t reg_value;
+} eeprom_register_s;
 
 typedef enum {
     MOTOR_CTRL_ERR_OK,
@@ -82,7 +87,8 @@ I2C_HandleTypeDef *hi2c_motor_ctrl;
 static motor_ctrl_err_e motor_write_data_word(motor_data_word_s *data_word);
 static motor_ctrl_err_e motor_read_data_word(motor_data_word_s *data_word, uint8_t *receive_buffer);
 static motor_ctrl_err_e calculate_crc(motor_data_word_s *data_word);
-static motor_ctrl_err_e generate_motor_data_word();
+static motor_ctrl_err_e initial_eeprom_config(void);
+static motor_ctrl_err_e read_eeprom_config(uint32_t *config_data);
 
 
 /* Public function prototypes */
@@ -91,4 +97,9 @@ motor_ctrl_err_e motor_parameter_extraction(motor_parameters_s *motor_params);
 motor_ctrl_err_e write_config_to_eeprom(motor_config_s *motor_config);
 motor_ctrl_err_e read_config_from_eeprom(motor_config_s *motor_config);
 motor_ctrl_err_e motor_startup_sequence(void);
-motor_ctrl_err_e motor_set_speed(float_t speed_rpm);
+motor_ctrl_err_e motor_set_speed(float_t *speed_rpm);
+motor_ctrl_err_e motor_get_speed(float_t *speed_rpm);
+motor_ctrl_err_e get_fault();
+motor_ctrl_err_e clear_fault(void);
+motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params);
+motor_ctrl_err_e run_mpet(void);
