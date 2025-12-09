@@ -1,3 +1,6 @@
+#ifndef MOTOR_CONTROL
+#define MOTOR_CONTROL
+
 // Includes
 
 #include "stm32f3xx_hal.h"
@@ -104,3 +107,5 @@ motor_ctrl_err_e get_fault();
 motor_ctrl_err_e clear_fault(void);
 motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params);
 motor_ctrl_err_e run_mpet(void);
+
+#endif

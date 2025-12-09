@@ -1,3 +1,6 @@
+#ifndef MOTOR_FAULT_DEFS
+#define MOTOR_FAULT_DEFS
+
 typedef enum {
     VCP_UV_FAULT,
     OVP_FAULT,
@@ -31,3 +34,5 @@ typedef enum {
 #define MPET_BEMF_FAULT_MASK  0x01000000
 #define ABN_SPEED_MASK        0x00800000
 #define ABN_BEMF_FAULT_MASK   0x
+
+#endif

@@ -22,6 +22,7 @@ target_include_directories(stm32cubemx INTERFACE
     ../../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
     ../../Drivers/CMSIS/Device/ST/STM32F3xx/Include
     ../../Drivers/CMSIS/Include
+    ../../Libraries/ISM330BX
 )
 
 target_sources(stm32cubemx INTERFACE
@@ -59,6 +60,9 @@ target_sources(stm32cubemx INTERFACE
     ../../Core/Src/sysmem.c
     ../../Core/Src/syscalls.c
     ../../startup_stm32f302xc.s
+    ../../Core/Src/ism330bx.c
+    ../../Core/Src/motor_control.c
+    ../../Libraries/ISM330BX/ism330bx_reg.c
 )
 
 target_link_directories(stm32cubemx INTERFACE
