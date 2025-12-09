@@ -1,3 +1,6 @@
+#ifndef MOTOR_REG_DEFS
+#define MOTOR_REG_DEFS
+
 /* EEPROM Algorithm Registers */
 #define MCF8315_EEPROM_ISD_CONFIG_REG        0x080
 #define MCF8315_EEPROM_REV_DRIVE_CONFIG_REG  0x082
@@ -91,3 +94,5 @@
 #define MCF8315_EQ_REG                         0x774
 #define MCF8315_SPEED_FDBK_REG                 0x782
 #define MCF8315_THETA_EST_REG                  0x786
+
+#endif

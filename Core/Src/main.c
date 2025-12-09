@@ -22,8 +22,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "ism330bx.h"
 #include "motor_control.h"
+#include "usbd_cdc_if.h"
+#include "ism330bx.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -370,9 +371,41 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
       
       // May need to disable interrupt, but will kep this as the highest priority for now
       memcpy(&current_sflp_data, &new_sflp_data, sizeof(sflp_data_frame_s));
-      
+
+      print_imu_data(&current_sflp_data);
 
   }
+}
+
+static void print_imu_data(sflp_data_frame_s *data) {
+  char game_rotation_vector[80];
+  char gyroscope_data[80];
+  char accelerometer_data[80];
+
+  snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\nX: %.4f\nY: %.4f\n Z: %.4f\nScalar: %.4f\n",
+                                data->game_rotation.x,
+                                data->game_rotation.y,
+                                data->game_rotation.z,
+                                data->game_rotation.w);
+
+  snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
+                                data->gyroscope.x,
+                                data->gyroscope.y,
+                                data->gyroscope.z);
+
+  snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
+                                data->accelerometer.x,
+                                data->accelerometer.y,
+                                data->accelerometer.z);
+
+  char section_break[] = "--------------------------------------------\n\0";
+
+  CDC_Transmit_FS(game_rotation_vector, sizeof(game_rotation_vector));
+  CDC_Transmit_FS(section_break, sizeof(section_break));
+  CDC_Transmit_FS(gyroscope_data, sizeof(gyroscope_data));
+  CDC_Transmit_FS(section_break, sizeof(section_break));
+  CDC_Transmit_FS(accelerometer_data, sizeof(accelerometer_data));
+  CDC_Transmit_FS(section_break, sizeof(section_break));
 }
 /* USER CODE END 4 */
 
