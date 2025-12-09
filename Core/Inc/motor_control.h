@@ -26,6 +26,7 @@
 #define MEM_ADDR_MASK     0x000FFF
 
 #define MAX_RPM          7200.0f
+#define MAX_SPEED           100000 //Placeholder
 
 
 
@@ -33,15 +34,15 @@
 /* Typedefs */
 typedef struct {
     //Actual measured values
-    float_t motor_resistance;
-    float_t motor_inductance;
-    float_t motor_bemf_constant;
+    float motor_resistance;
+    float motor_inductance;
+    float motor_bemf_constant;
 
-    float_t current_loop_ki;
-    float_t current_loop_kp;
+    float current_loop_ki;
+    float current_loop_kp;
 
-    float_t speed_loop_ki;
-    float_t speed_loop_kp;
+    float speed_loop_ki;
+    float speed_loop_kp;
 
     //LUT Locations of nearest values
     uint8_t motor_resistance_hex;
@@ -79,7 +80,7 @@ typedef enum {
 
 
 /* Private Variables */
-I2C_HandleTypeDef *hi2c_motor_ctrl;
+static I2C_HandleTypeDef *hi2c_motor_ctrl;
 
 /* Global Variables */
 
@@ -94,11 +95,11 @@ static motor_ctrl_err_e read_eeprom_config(uint32_t *config_data);
 /* Public function prototypes */
 motor_ctrl_err_e motor_control_init(I2C_HandleTypeDef *hi2c);
 motor_ctrl_err_e motor_parameter_extraction(motor_parameters_s *motor_params);
-motor_ctrl_err_e write_config_to_eeprom(motor_config_s *motor_config);
-motor_ctrl_err_e read_config_from_eeprom(motor_config_s *motor_config);
+motor_ctrl_err_e write_config_to_eeprom();
+motor_ctrl_err_e read_config_from_eeprom();
 motor_ctrl_err_e motor_startup_sequence(void);
-motor_ctrl_err_e motor_set_speed(float_t *speed_rpm);
-motor_ctrl_err_e motor_get_speed(float_t *speed_rpm);
+motor_ctrl_err_e motor_set_speed(float speed_rpm);
+motor_ctrl_err_e motor_get_speed(float *speed_rpm);
 motor_ctrl_err_e get_fault();
 motor_ctrl_err_e clear_fault(void);
 motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params);

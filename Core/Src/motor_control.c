@@ -160,17 +160,18 @@ static motor_ctrl_err_e read_eeprom_config(uint32_t *config_data) {
 
 motor_ctrl_err_e motor_ctrl_init(I2C_HandleTypeDef *hi2c)
 {
-    hi2c_motor_ctrl = hi2c;
+    *hi2c_motor_ctrl = *hi2c;
     return MOTOR_CTRL_ERR_OK;
 }
 
 motor_ctrl_err_e motor_startup_sequence(void) {
     //First set speed ref > 0
-    motor_set_speed(100.0f);
+    uint32_t motor_speed = 100.0f;
+    motor_set_speed(motor_speed);
 
 }
 
-motor_ctrl_err_e motor_set_speed(float_t speed_rpm) {
+motor_ctrl_err_e motor_set_speed(float speed_rpm) {
 
     if(speed_rpm > MAX_RPM) {
         return MOTOR_CTRL_ERR_ERROR;
@@ -213,13 +214,28 @@ motor_ctrl_err_e motor_set_speed(float_t speed_rpm) {
     return MOTOR_CTRL_ERR_OK;
 }
 
-motor_ctrl_err_e motor_get_speed(float_t speed_rpm) {
+motor_ctrl_err_e motor_get_speed(float *speed_rpm) {
+    motor_data_word_s speed_access;
 
+    speed_access.target_id = MCF8315D_I2C_ADDRESS;
+    speed_access.read_write_bit = OP_RW_WRITE;
+    speed_access.control_word.op_rw = OP_RW_READ;
+    speed_access.control_word.crc_en = CRC_EN_DISABLE;
+    speed_access.control_word.d_len = D_LEN_32_BIT;
+    speed_access.control_word.mem_sec = 0;
+    speed_access.control_word.mem_page = 0;
+    speed_access.control_word.mem_addr = MCF8315_SPEED_FDBK_REG;
+
+    int32_t register_value;
+
+    motor_read_data_word(&speed_access, (uint8_t*)&register_value);
+
+    *speed_rpm = (register_value/pow(2, 27)) * MAX_SPEED * 60;
 }
 
 motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params) {
 
-    motor_data_word extract_word;
+    motor_data_word_s extract_word;
     extract_word.target_id = MCF8315D_I2C_ADDRESS;
     extract_word.read_write_bit = OP_RW_WRITE;
     extract_word.control_word.op_rw = OP_RW_READ;
@@ -231,7 +247,7 @@ motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params) {
 
     uint8_t motor_params_data[4];
 
-    motor_read_data_word(&extract_word, &motor_params_data);
+    motor_read_data_word(&extract_word, motor_params_data);
 
     extracted_params->motor_inductance_hex = motor_params_data[1];
     extracted_params->motor_bemf_constant_hex = motor_params_data[2];
@@ -248,18 +264,18 @@ motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params) {
 
     motor_read_data_word(&extract_word, (uint8_t*)&speed_loop_data);
 
-    extracted_params->current_loop_ki = 1000*((0xFF0000 & current_loop_data) >> 16)/(10^((0x3000000 & current_loop_data) >> 18));
-    extracted_params->current_loop_kp = (current_loop_data & 0xFF)/(10^((current_loop_data & 0x300) >> 8));
+    extracted_params->current_loop_ki = 1000*((0xFF0000 & current_loop_data) >> 16)/(pow(10,((0x3000000 & current_loop_data) >> 18)));
+    extracted_params->current_loop_kp = (current_loop_data & 0xFF)/(pow(10,((current_loop_data & 0x300) >> 8)));
 
-    extracted_params->speed_loop_ki = 0.1*((0xFF0000 & speed_loop_data) >> 16)/(10^((0x3000000 & current_loop_data) >> 18));
-    extracted_params->speed_loop_kp = 0.01*(0xFF & speed_loop_data)/(10^((0x300 & speed_loop_data) >> 8));
+    extracted_params->speed_loop_ki = 0.1*((0xFF0000 & speed_loop_data) >> 16)/(pow(10,((0x3000000 & current_loop_data) >> 18)));
+    extracted_params->speed_loop_kp = 0.01*(0xFF & speed_loop_data)/(pow(10,((0x300 & speed_loop_data) >> 8)));
 
     return MOTOR_CTRL_ERR_OK;
 }
 
 motor_ctrl_err_e run_mpet(void) {
 
-    motor_data_word mpet_enable;
+    motor_data_word_s mpet_enable;
     mpet_enable.target_id = MCF8315D_I2C_ADDRESS;
     mpet_enable.read_write_bit = OP_RW_WRITE;
     mpet_enable.control_word.op_rw = OP_RW_WRITE;
@@ -279,7 +295,7 @@ motor_ctrl_err_e run_mpet(void) {
 }
 
 motor_ctrl_err_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fault) {
-    motor_data_word read_fault;
+    motor_data_word_s read_fault;
     read_fault.target_id = MCF8315D_I2C_ADDRESS;
     read_fault.read_write_bit = OP_RW_WRITE;
     read_fault.control_word.op_rw = OP_RW_READ;
@@ -301,7 +317,7 @@ motor_ctrl_err_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fau
 }
 
 motor_ctrl_err_e clear_fault() {
-    motor_data_word clear_fault;
+    motor_data_word_s clear_fault;
     clear_fault.target_id = MCF8315D_I2C_ADDRESS;
     clear_fault.read_write_bit = OP_RW_WRITE;
     clear_fault.control_word.op_rw = OP_RW_READ;
