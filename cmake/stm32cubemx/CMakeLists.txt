@@ -62,6 +62,7 @@ target_sources(stm32cubemx INTERFACE
     ../../startup_stm32f302xc.s
     ../../Libraries/ISM330bx/ism330bx_reg.c
     ../../Core/Src/ism330bx.c
+    ../../Core/Src/motor_control.c
 )
 
 target_link_directories(stm32cubemx INTERFACE
