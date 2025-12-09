@@ -19,10 +19,9 @@ target_include_directories(stm32cubemx INTERFACE
     ../../Drivers/STM32F3xx_HAL_Driver/Inc
     ../../Drivers/STM32F3xx_HAL_Driver/Inc/Legacy
     ../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc
-    ../../Middlewares/ST/STM32_USB_Device_Library/Class/DFU/Inc
+    ../../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
     ../../Drivers/CMSIS/Device/ST/STM32F3xx/Include
     ../../Drivers/CMSIS/Include
-    ../../Libraries/ISM330bx
 )
 
 target_sources(stm32cubemx INTERFACE
@@ -31,7 +30,7 @@ target_sources(stm32cubemx INTERFACE
     ../../Core/Src/stm32f3xx_hal_msp.c
     ../../USB_DEVICE/App/usb_device.c
     ../../USB_DEVICE/App/usbd_desc.c
-    ../../USB_DEVICE/App/usbd_dfu_if.c
+    ../../USB_DEVICE/App/usbd_cdc_if.c
     ../../USB_DEVICE/Target/usbd_conf.c
     ../../Drivers/STM32F3xx_HAL_Driver/Src/stm32f3xx_ll_usb.c
     ../../Drivers/STM32F3xx_HAL_Driver/Src/stm32f3xx_hal_pcd.c
@@ -56,13 +55,10 @@ target_sources(stm32cubemx INTERFACE
     ../../Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c
     ../../Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.c
     ../../Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.c
-    ../../Middlewares/ST/STM32_USB_Device_Library/Class/DFU/Src/usbd_dfu.c
+    ../../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/usbd_cdc.c
     ../../Core/Src/sysmem.c
     ../../Core/Src/syscalls.c
     ../../startup_stm32f302xc.s
-    ../../Libraries/ISM330bx/ism330bx_reg.c
-    ../../Core/Src/ism330bx.c
-    ../../Core/Src/motor_control.c
 )
 
 target_link_directories(stm32cubemx INTERFACE
