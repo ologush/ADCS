@@ -63,6 +63,7 @@ target_sources(stm32cubemx INTERFACE
     ../../Core/Src/ism330bx.c
     ../../Core/Src/motor_control.c
     ../../Libraries/ISM330BX/ism330bx_reg.c
+    ../../Core/Src/control_algo.c
 )
 
 target_link_directories(stm32cubemx INTERFACE
