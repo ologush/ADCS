@@ -29,15 +29,17 @@ typedef struct {
 #define RW_MOI 1.0f //placeholder
 #define SAT_MOI 1.0f //placeholder
 
-static float target_attitude;
-static float target_spin_rate;
-static algo_target_e algo_target_type;
+
+
 
 PID_parameters_s attitude_PID;
 PID_parameters_s spin_rate_PID;
 
 extern PID_parameters_s attitude_control;
 extern PID_parameters_s spin_control;
+extern algo_target_e algo_target_type;
+extern float target_attitude;
+extern float target_spin_rate;
 
 control_algo_error_e set_attitude_target(float target);
 control_algo_error_e set_spin_rate_target(float spin_rate);

@@ -68,6 +68,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 static void print_imu_data(sflp_data_frame_s *data);
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

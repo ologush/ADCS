@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 PID_parameters_s attitude_control = {
-     .Kp=10,
+    .Kp=10,
     .Ki=.01,
     .Kd=0,
     .time_step=.01,
