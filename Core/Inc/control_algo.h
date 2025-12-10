@@ -14,19 +14,37 @@ typedef enum {
     ALGO_TARGET_ATTITUDE
 } algo_target_e;
 
+//Just PD for now
+typedef struct {
+    float Kp;
+    float Ki;
+    float Kd;
+    float time_step;
+    float error;
+    float prev_error;
+    float target;
+    float measured;
+} PID_paramaters_s;
+
 #define RW_MOI 1.0f //placeholder
 #define SAT_MOI 1.0f //placeholder
 
-static Quaternion target_attitude;
+static float target_attitude;
 static float target_spin_rate;
 static algo_target_e algo_target_type;
 
+PID_parameters_s attitude_PID;
+PID_parameters_s spin_rate_PID;
 
-control_algo_error_e set_attitude_target(Quaternion *attitude);
+extern PID_parameters_s attitude_control;
+extern PID_parameters_s spin_control;
+
+control_algo_error_e set_attitude_target(float target);
 control_algo_error_e set_spin_rate_target(float spin_rate);
 control_algo_error_e set_target_type(algo_target_e target_type);
 
-control_algo_error_e spin_rate_iteration(float current_spin_rate);
-control_algo_error_e attitude_iteration(Quaternion *current_attitude);
+control_algo_error_e iteration(PID_parameters_s *parameters, float *command);
+
+control_algo_error_e wrap_pi(float input_angle, float *target_angle);
 
 #endif

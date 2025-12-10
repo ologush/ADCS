@@ -381,6 +381,8 @@ static void print_imu_data(sflp_data_frame_s *data) {
   char game_rotation_vector[80];
   char gyroscope_data[80];
   char accelerometer_data[80];
+  char yaw[30];
+  char spin[30];
 
   snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\nX: %.4f\nY: %.4f\n Z: %.4f\nScalar: %.4f\n",
                                 data->game_rotation.x,
@@ -389,14 +391,17 @@ static void print_imu_data(sflp_data_frame_s *data) {
                                 data->game_rotation.w);
 
   snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
-                                data->gyroscope.x,
-                                data->gyroscope.y,
-                                data->gyroscope.z);
+                                data->gyroscope.pitch,
+                                data->gyroscope.roll,
+                                data->gyroscope.yaw);
 
   snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
                                 data->accelerometer.x,
                                 data->accelerometer.y,
                                 data->accelerometer.z);
+
+  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians", data->yaw);
+  snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis", data->yaw_rate);
 
   char section_break[] = "--------------------------------------------\n\0";
 
@@ -405,6 +410,10 @@ static void print_imu_data(sflp_data_frame_s *data) {
   CDC_Transmit_FS(gyroscope_data, sizeof(gyroscope_data));
   CDC_Transmit_FS(section_break, sizeof(section_break));
   CDC_Transmit_FS(accelerometer_data, sizeof(accelerometer_data));
+  CDC_Transmit_FS(section_break, sizeof(section_break));
+  CDC_Transmit_FS(yaw, sizeof(yaw));
+  CDC_Transmit_FS(section_break, sizeof(section_break));
+  CDC_Transmit_FS(spin, sizeof(spin));
   CDC_Transmit_FS(section_break, sizeof(section_break));
 }
 /* USER CODE END 4 */
