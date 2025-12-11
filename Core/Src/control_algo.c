@@ -24,6 +24,8 @@ PID_parameters_s spin_control = {
     .measured=0
 };
 
+algo_target_e algo_target_type = ALGO_OFF;
+
 control_algo_error_e set_attitude_target(float target) {
     attitude_control.target = target;
 

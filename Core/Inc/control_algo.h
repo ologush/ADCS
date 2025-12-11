@@ -24,16 +24,10 @@ typedef struct {
     float prev_error;
     float target;
     float measured;
-} PID_paramaters_s;
+} PID_parameters_s;
 
 #define RW_MOI 1.0f //placeholder
 #define SAT_MOI 1.0f //placeholder
-
-
-
-
-PID_parameters_s attitude_PID;
-PID_parameters_s spin_rate_PID;
 
 extern PID_parameters_s attitude_control;
 extern PID_parameters_s spin_control;

@@ -424,9 +424,20 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if(htim->Instance == TIM6) {
     if(algo_target_type == ALGO_TARGET_ATTITUDE) {
-      
+
+      float speed_change;
+
+      iteration(&attitude_control, &speed_change);
+      set_speed += speed_change;
+      motor_set_speed(set_speed);
       
     } else if(algo_target_type == ALGO_TARGET_SPIN_RATE) {
+
+      float speed_change;
+
+      iteration(&spin_control, &speed_change);
+      set_speed += speed_change;
+      motor_set_speed(set_speed);
 
     }
   }
