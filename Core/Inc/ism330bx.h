@@ -70,9 +70,9 @@ typedef struct {
 } gyroscope_bias_s;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
+    float_t pitch;
+    float_t roll;
+    float_t yaw;
 } gyroscope_data_s;
 
 typedef struct {
@@ -85,6 +85,8 @@ typedef struct {
     Quaternion game_rotation;
     gyroscope_data_s gyroscope;
     accelerometer_data_s accelerometer;
+    float yaw;
+    float yaw_rate;
 } sflp_data_frame_s;
 
 /* Private Variables */
@@ -100,6 +102,7 @@ extern stmdev_ctx_t dev_ctx;
 extern ism330bx_fifo_status_t fifo_status;
 extern ism330bx_reset_t rst;
 extern ism330bx_sflp_gbias_t gbias;
+
 /*Hardware Platform Specific Functions*/
 static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
                               uint16_t len);
@@ -123,6 +126,8 @@ static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector,
 ISM330BX_ERRORS_e SFLP_INIT(void);
 ISM330BX_ERRORS_e sflp_init_interrupt(void);
 ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame);
+ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw);
+ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second);
 
 
 

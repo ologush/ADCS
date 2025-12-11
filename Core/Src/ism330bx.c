@@ -1,5 +1,6 @@
 #include "ism330bx.h"
 #include "ism330bx_reg.h"
+#include "motor_control.h"
 #include "stm32f3xx_hal.h"
 #include "stm32f3xx_hal_i2c.h"
 #include <math.h>
@@ -8,6 +9,8 @@
 stmdev_ctx_t dev_ctx;
 ism330bx_fifo_status_t fifo_status;
 ism330bx_sflp_gbias_t gbias;
+
+float set_speed = 0;
 
 static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
                               uint16_t len)
@@ -169,9 +172,11 @@ ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame) {
             switch (fifo_data.tag) {
                 case ISM330BX_SFLP_GAME_ROTATION_VECTOR_TAG:
                     get_game_rotation(&target_data_frame->game_rotation, (uint16_t*)&fifo_data.data[0]);
+                    get_yaw_angle(&target_data_frame->game_rotation, &target_data_frame->yaw);
                     break;
                 case ISM330BX_GY_NC_TAG: //Not sure what the differnt gyroscope tags are, assuming this first one is correct for now
                     gyroscope_raw_to_float(&target_data_frame->gyroscope, (uint16_t*)&fifo_data.data[0]);
+                    deg_s_to_rad_s(target_data_frame->gyroscope.yaw, &target_data_frame->yaw_rate);
                     break;
                 case ISM330BX_XL_NC_TAG: //Not sure what the differnt accelerometer tags are, assuming this first one is correct for now
                     accelerometer_raw_to_float(&target_data_frame->accelerometer, (uint16_t*)&fifo_data.data[0]);
@@ -217,34 +222,34 @@ static ISM330BX_ERRORS_e accelerometer_raw_to_float(accelerometer_data_s *target
 static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]) {
         switch(SFLP_config.gy_scale) {
         case ISM330BX_125dps:
-            target_vector->x = ism330bx_from_fs125_to_mdps(data[0]);
-            target_vector->y = ism330bx_from_fs125_to_mdps(data[1]);
-            target_vector->z = ism330bx_from_fs125_to_mdps(data[2]);
+            target_vector->pitch = ism330bx_from_fs125_to_mdps(data[0]);
+            target_vector->roll = ism330bx_from_fs125_to_mdps(data[1]);
+            target_vector->yaw = ism330bx_from_fs125_to_mdps(data[2]);
             break;
         case ISM330BX_250dps:
-            target_vector->x = ism330bx_from_fs250_to_mdps(data[0]);
-            target_vector->y = ism330bx_from_fs250_to_mdps(data[1]);
-            target_vector->z = ism330bx_from_fs250_to_mdps(data[2]);
+            target_vector->pitch = ism330bx_from_fs250_to_mdps(data[0]);
+            target_vector->roll = ism330bx_from_fs250_to_mdps(data[1]);
+            target_vector->yaw = ism330bx_from_fs250_to_mdps(data[2]);
             break;
         case ISM330BX_500dps:
-            target_vector->x = ism330bx_from_fs500_to_mdps(data[0]);
-            target_vector->y = ism330bx_from_fs500_to_mdps(data[1]);
-            target_vector->z = ism330bx_from_fs500_to_mdps(data[2]);
+            target_vector->pitch = ism330bx_from_fs500_to_mdps(data[0]);
+            target_vector->roll = ism330bx_from_fs500_to_mdps(data[1]);
+            target_vector->yaw = ism330bx_from_fs500_to_mdps(data[2]);
             break;
         case ISM330BX_1000dps:
-            target_vector->x = ism330bx_from_fs1000_to_mdps(data[0]);
-            target_vector->y = ism330bx_from_fs1000_to_mdps(data[1]);
-            target_vector->z = ism330bx_from_fs1000_to_mdps(data[2]);
+            target_vector->pitch = ism330bx_from_fs1000_to_mdps(data[0]);
+            target_vector->roll = ism330bx_from_fs1000_to_mdps(data[1]);
+            target_vector->yaw = ism330bx_from_fs1000_to_mdps(data[2]);
             break;
         case ISM330BX_2000dps:
-            target_vector->x = ism330bx_from_fs2000_to_mdps(data[0]);
-            target_vector->y = ism330bx_from_fs2000_to_mdps(data[1]);
-            target_vector->z = ism330bx_from_fs2000_to_mdps(data[2]);
+            target_vector->pitch = ism330bx_from_fs2000_to_mdps(data[0]);
+            target_vector->roll = ism330bx_from_fs2000_to_mdps(data[1]);
+            target_vector->yaw = ism330bx_from_fs2000_to_mdps(data[2]);
             break;
         case ISM330BX_4000dps:
-            target_vector->x = ism330bx_from_fs4000_to_mdps(data[0]);
-            target_vector->y = ism330bx_from_fs4000_to_mdps(data[1]);
-            target_vector->z = ism330bx_from_fs4000_to_mdps(data[2]);
+            target_vector->pitch = ism330bx_from_fs4000_to_mdps(data[0]);
+            target_vector->roll = ism330bx_from_fs4000_to_mdps(data[1]);
+            target_vector->yaw = ism330bx_from_fs4000_to_mdps(data[2]);
             break;
 
         default:
@@ -375,4 +380,14 @@ static uint32_t npy_halfbits_to_floatbits(uint16_t h) {
             f_sig = ((uint32_t)(h_sig & 0x03FFu)) << 13;
             return f_sgn + f_exp + f_sig;
     }
+}
+
+ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw) {
+    float s1 = 2.0f * (quat->w * quat->z + quat->x * quat->y);
+    float s2 = 1.0f - 2.0f * (quat->y * quat->y + quat->z * quat->z);
+    *yaw = atan2f(s1, s2);
+}
+
+ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second) {
+    *rad_per_second = deg_per_second * (M_PI / 180.0f);
 }

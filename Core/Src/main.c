@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "stm32f3xx_hal_tim.h"
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -25,6 +26,7 @@
 #include "motor_control.h"
 #include "usbd_cdc_if.h"
 #include "ism330bx.h"
+#include "control_algo.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,6 +49,8 @@ I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim6;
+
 USART_HandleTypeDef husart3;
 DMA_HandleTypeDef hdma_usart3_rx;
 DMA_HandleTypeDef hdma_usart3_tx;
@@ -63,6 +67,7 @@ static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -107,6 +112,7 @@ int main(void)
   MX_SPI1_Init();
   MX_USART3_Init();
   MX_USB_DEVICE_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   SFLP_INIT();
   sflp_init_interrupt();
@@ -262,6 +268,44 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 6540;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 366;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -377,10 +421,34 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   }
 }
 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+  if(htim->Instance == TIM6) {
+    if(algo_target_type == ALGO_TARGET_ATTITUDE) {
+
+      float speed_change;
+
+      iteration(&attitude_control, &speed_change);
+      set_speed += speed_change;
+      motor_set_speed(set_speed);
+      
+    } else if(algo_target_type == ALGO_TARGET_SPIN_RATE) {
+
+      float speed_change;
+
+      iteration(&spin_control, &speed_change);
+      set_speed += speed_change;
+      motor_set_speed(set_speed);
+
+    }
+  }
+}
+
 static void print_imu_data(sflp_data_frame_s *data) {
   char game_rotation_vector[80];
   char gyroscope_data[80];
   char accelerometer_data[80];
+  char yaw[30];
+  char spin[30];
 
   snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\nX: %.4f\nY: %.4f\n Z: %.4f\nScalar: %.4f\n",
                                 data->game_rotation.x,
@@ -389,14 +457,17 @@ static void print_imu_data(sflp_data_frame_s *data) {
                                 data->game_rotation.w);
 
   snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
-                                data->gyroscope.x,
-                                data->gyroscope.y,
-                                data->gyroscope.z);
+                                data->gyroscope.pitch,
+                                data->gyroscope.roll,
+                                data->gyroscope.yaw);
 
   snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
                                 data->accelerometer.x,
                                 data->accelerometer.y,
                                 data->accelerometer.z);
+
+  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians", data->yaw);
+  snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis", data->yaw_rate);
 
   char section_break[] = "--------------------------------------------\n\0";
 
@@ -405,6 +476,10 @@ static void print_imu_data(sflp_data_frame_s *data) {
   CDC_Transmit_FS(gyroscope_data, sizeof(gyroscope_data));
   CDC_Transmit_FS(section_break, sizeof(section_break));
   CDC_Transmit_FS(accelerometer_data, sizeof(accelerometer_data));
+  CDC_Transmit_FS(section_break, sizeof(section_break));
+  CDC_Transmit_FS(yaw, sizeof(yaw));
+  CDC_Transmit_FS(section_break, sizeof(section_break));
+  CDC_Transmit_FS(spin, sizeof(spin));
   CDC_Transmit_FS(section_break, sizeof(section_break));
 }
 /* USER CODE END 4 */

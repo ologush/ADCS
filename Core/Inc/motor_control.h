@@ -86,6 +86,7 @@ typedef enum {
 static I2C_HandleTypeDef *hi2c_motor_ctrl;
 
 /* Global Variables */
+extern float set_speed;
 
 /* Private function prototypes*/
 static motor_ctrl_err_e motor_write_data_word(motor_data_word_s *data_word);
