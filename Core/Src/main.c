@@ -112,10 +112,10 @@ int main(void)
   MX_SPI1_Init();
   MX_USART3_Init();
   MX_USB_DEVICE_Init();
-  MX_TIM6_Init();
+  //MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
-  SFLP_INIT();
-  sflp_init_interrupt();
+  //SFLP_INIT();
+  //sflp_init_interrupt();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -123,7 +123,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+    CDC_Transmit_FS("Test\r\n", sizeof("Test\r\n"));
+    HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
