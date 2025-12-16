@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f3xx_hal_tim.h"
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -112,10 +111,11 @@ int main(void)
   MX_SPI1_Init();
   MX_USART3_Init();
   MX_USB_DEVICE_Init();
-  //MX_TIM6_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   //SFLP_INIT();
   //sflp_init_interrupt();
+  HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -123,8 +123,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    CDC_Transmit_FS("Test\r\n", sizeof("Test\r\n"));
-    HAL_Delay(1000);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -423,7 +422,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+  CDC_Transmit_FS("ISR\r\n", sizeof("ISR\r\n"));
   if(htim->Instance == TIM6) {
+    CDC_Transmit_FS("ISR\r\n", sizeof("ISR\r\n"));
     if(algo_target_type == ALGO_TARGET_ATTITUDE) {
 
       float speed_change;
