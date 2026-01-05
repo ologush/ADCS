@@ -32,8 +32,9 @@ static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
                              uint16_t len)
 {
   /* USER CODE BEGIN READ */
+    uint8_t read_reg = (reg | 0x80); //Set MSB read flag
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(handle, &reg, 1, 1000);
+    HAL_SPI_Transmit(handle, &read_reg, 1, 1000);
     HAL_SPI_Receive(handle, bufp, len, 1000);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
   return 0;
@@ -57,14 +58,14 @@ SFLP_CONFIG_s SFLP_config = {
     .gbias = SFLP_MODE_DISABLE
 };
 
-ISM330BX_ERRORS_e SFLP_INIT(void * handle) {
+ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle) {
     
     int32_t err;
     dev_ctx.write_reg = platform_write;
     dev_ctx.read_reg = platform_read;
     dev_ctx.mdelay = platform_delay;
-    dev_ctx.handle = &handle;
-    //dev_ctx.handle = &hi2c2;
+    dev_ctx.handle = handle;
+
     platform_delay(BOOT_TIME);
 
     /* Check Device ID */
