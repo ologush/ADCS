@@ -60,6 +60,10 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
 )
 
+target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
+    -g3 -Og -fno-omit-frame-pointer
+)
+
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx

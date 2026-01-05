@@ -9,7 +9,7 @@
 
 
 /* Macros */
-#define BOOT_TIME           10
+#define BOOT_TIME           5000
 #define FIFO_WATERMARK      3
 
 #define INT1_FIFO_TH        0x07u
@@ -90,7 +90,6 @@ typedef struct {
 } sflp_data_frame_s;
 
 /* Private Variables */
-static uint8_t whoamI;
 static uint8_t tx_buffer[1000];
 
 static ism330bx_fifo_sflp_raw_t fifo_sflp;
@@ -123,7 +122,7 @@ static ISM330BX_ERRORS_e accelerometer_raw_to_float(accelerometer_data_s *target
 static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]);
 
 /* Public Functions */
-ISM330BX_ERRORS_e SFLP_INIT(void);
+ISM330BX_ERRORS_e SFLP_INIT(void * handle);
 ISM330BX_ERRORS_e sflp_init_interrupt(void);
 ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame);
 ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw);
