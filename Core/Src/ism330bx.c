@@ -142,6 +142,7 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
 
     // Set interrupt pin to push-pull and active high
     int32_t err = 0;
+
     err = ism330bx_int_pin_mode_set(&dev_ctx, ISM330BX_PUSH_PULL);
     if(err != 0) {
         return ISM330BX_ERR_ERROR;
@@ -151,6 +152,7 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
     if(err != 0) {
         return ISM330BX_ERR_ERROR;
     }
+    ism330bx_pin_int_route_t checkRoute;
 
     // Route FIFO watermark interrupt to INT1 pin
     ism330bx_pin_int_route_t int1_route = {
@@ -194,7 +196,7 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
     if(err != 0) {
         return ISM330BX_ERR_ERROR;
     }
-    ism330bx_pin_int_route_t checkRoute;
+    
     err = ism330bx_pin_int1_route_get(&dev_ctx, &checkRoute);
     return ISM330BX_ERR_OK;
 }
