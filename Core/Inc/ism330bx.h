@@ -10,7 +10,7 @@
 
 /* Macros */
 #define BOOT_TIME           10
-#define FIFO_WATERMARK      3
+#define FIFO_WATERMARK      4
 
 #define INT1_FIFO_TH        0x07u
 

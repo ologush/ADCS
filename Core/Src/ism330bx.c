@@ -134,6 +134,8 @@ ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle) {
     ism330bx_fifo_xl_batch_set(&dev_ctx, SFLP_config.xl_batch_rate);
     ism330bx_fifo_gy_batch_set(&dev_ctx, SFLP_config.gy_batch_rate);
 
+    ism330bx_sflp_game_rotation_set(&dev_ctx, PROPERTY_ENABLE);
+
     return ISM330BX_ERR_OK;
 
 }
@@ -421,13 +423,21 @@ static uint32_t npy_halfbits_to_floatbits(uint16_t h) {
                 return f_sgn;
             }
             /* Normalize the subnormal number */
-            do {
+
+            h_sig <<= 1;
+            while ((h_sig & 0x0400u) == 0) {
                 h_sig <<= 1;
                 h_exp++;
-            } while ((h_sig & 0x0400u) == 0);
-            f_exp = ((uint32_t)(h_exp + (127 -15))) << 23;
-            f_sig = ((uint32_t)(h_sig & 0x03FFu)) << 13;
+            }
+            f_exp = ((uint32_t)(127 - 15 - h_exp)) << 23;
+            f_sig = ((uint32_t)(h_sig&0x03ffu)) << 13;
             return f_sgn + f_exp + f_sig;
+        case 0x7C00u: /* inf or NaN */
+            /* All-ones exponent and a copy of the significand */
+            return f_sgn + 0x7f800000u + (((uint32_t)(h&0x03ffu)) << 13);
+        default: /* normalized */
+            /* Just need to adjust the exponent and shift */
+            return f_sgn + (((uint32_t)(h&0x7fffu) + 0x1c000u) << 13);
     }
 }
 
