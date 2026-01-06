@@ -60,9 +60,19 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
 )
 
+target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
+    -g3 -Og -fno-omit-frame-pointer
+)
+
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
 
     # Add user defined libraries
+)
+
+#add printf float support
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+  -Wl,-u,_printf_float
+  # -Wl,-u,_scanf_float   # only if you need scanf("%f")
 )

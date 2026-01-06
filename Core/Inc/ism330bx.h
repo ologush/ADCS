@@ -10,7 +10,7 @@
 
 /* Macros */
 #define BOOT_TIME           10
-#define FIFO_WATERMARK      3
+#define FIFO_WATERMARK      4
 
 #define INT1_FIFO_TH        0x07u
 
@@ -51,34 +51,34 @@ typedef struct {
 } SFLP_CONFIG_s;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
-    float_t w;
+    float x;
+    float y;
+    float z;
+    float w;
 } Quaternion;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
+    float x;
+    float y;
+    float z;
 } gravity_vector_s;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
+    float x;
+    float y;
+    float z;
 } gyroscope_bias_s;
 
 typedef struct {
-    float_t pitch;
-    float_t roll;
-    float_t yaw;
+    float pitch;
+    float roll;
+    float yaw;
 } gyroscope_data_s;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
+    float x;
+    float y;
+    float z;
 } accelerometer_data_s;
 
 typedef struct {
@@ -90,7 +90,6 @@ typedef struct {
 } sflp_data_frame_s;
 
 /* Private Variables */
-static uint8_t whoamI;
 static uint8_t tx_buffer[1000];
 
 static ism330bx_fifo_sflp_raw_t fifo_sflp;
@@ -123,7 +122,7 @@ static ISM330BX_ERRORS_e accelerometer_raw_to_float(accelerometer_data_s *target
 static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]);
 
 /* Public Functions */
-ISM330BX_ERRORS_e SFLP_INIT(void);
+ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle);
 ISM330BX_ERRORS_e sflp_init_interrupt(void);
 ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame);
 ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw);

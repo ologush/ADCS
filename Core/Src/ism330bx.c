@@ -2,13 +2,17 @@
 #include "ism330bx_reg.h"
 #include "motor_control.h"
 #include "stm32f3xx_hal.h"
+#include "stm32f3xx_hal_gpio.h"
 #include "stm32f3xx_hal_i2c.h"
 #include <math.h>
 #include <stdint.h>
+#include "usbd_cdc_if.h"
 
 stmdev_ctx_t dev_ctx;
 ism330bx_fifo_status_t fifo_status;
 ism330bx_sflp_gbias_t gbias;
+
+
 
 float set_speed = 0;
 
@@ -16,8 +20,11 @@ static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
                               uint16_t len)
 {
   /* USER CODE BEGIN WRITE */
-  HAL_I2C_Mem_Write(handle, ISM330BX_I2C_ADD_L, reg, I2C_MEMADD_SIZE_8BIT, (uint8_t*) bufp,
-                    len, 1000);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(handle, &reg, 1, 1000);
+    HAL_SPI_Transmit(handle, (uint8_t*) bufp, len, 1000);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+    return 0;
   /* USER CODE END WRITE */
 }
 
@@ -25,8 +32,11 @@ static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
                              uint16_t len)
 {
   /* USER CODE BEGIN READ */
-    HAL_I2C_Mem_Read(handle, ISM330BX_I2C_ADD_L, reg, I2C_MEMADD_SIZE_8BIT, bufp,
-                     len, 1000);
+    uint8_t read_reg = (reg | 0x80); //Set MSB read flag
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(handle, &read_reg, 1, 1000);
+    HAL_SPI_Receive(handle, bufp, len, 1000);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
   return 0;
   /* USER CODE END READ */
 }
@@ -48,20 +58,22 @@ SFLP_CONFIG_s SFLP_config = {
     .gbias = SFLP_MODE_DISABLE
 };
 
-ISM330BX_ERRORS_e SFLP_INIT(void) {
-
+ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle) {
+    
     int32_t err;
     dev_ctx.write_reg = platform_write;
     dev_ctx.read_reg = platform_read;
     dev_ctx.mdelay = platform_delay;
-    //dev_ctx.handle = &hi2c2;
+    dev_ctx.handle = handle;
+
     platform_delay(BOOT_TIME);
 
     /* Check Device ID */
+    uint8_t whoamI = 0;
     ism330bx_device_id_get(&dev_ctx, &whoamI);
-
     if (whoamI != ISM330BX_ID) {
         /* Throw Error */
+        CDC_Transmit_FS("Error\r\n", sizeof("Error\r\n"));
         return ISM330BX_ERR_ERROR;
     }
 
@@ -122,6 +134,8 @@ ISM330BX_ERRORS_e SFLP_INIT(void) {
     ism330bx_fifo_xl_batch_set(&dev_ctx, SFLP_config.xl_batch_rate);
     ism330bx_fifo_gy_batch_set(&dev_ctx, SFLP_config.gy_batch_rate);
 
+    ism330bx_sflp_game_rotation_set(&dev_ctx, PROPERTY_ENABLE);
+
     return ISM330BX_ERR_OK;
 
 }
@@ -129,7 +143,8 @@ ISM330BX_ERRORS_e SFLP_INIT(void) {
 ISM330BX_ERRORS_e sflp_init_interrupt(void) {
 
     // Set interrupt pin to push-pull and active high
-    int32_t err;
+    int32_t err = 0;
+
     err = ism330bx_int_pin_mode_set(&dev_ctx, ISM330BX_PUSH_PULL);
     if(err != 0) {
         return ISM330BX_ERR_ERROR;
@@ -141,12 +156,48 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
     }
 
     // Route FIFO watermark interrupt to INT1 pin
-    ism330bx_pin_int_route_t int1_route;
-    int1_route.fifo_th = PROPERTY_ENABLE;
+    ism330bx_pin_int_route_t int1_route = {
+        boot: 0,
+        drdy_xl: 0,
+        drdy_gy: 0,
+        drdy_temp: 0,
+        drdy_ah_qvar: 0,
+        fifo_th: 1,
+        fifo_ovr: 0,
+        fifo_full: 0,
+        fifo_bdr: 0,
+        den_flag: 0,
+        timestamp: 0,
+        six_d: 0,
+        double_tap: 0,
+        free_fall: 0,
+        wake_up: 0,
+        single_tap: 0,
+        sleep_change: 0,
+        sleep_status: 0,
+        step_detector: 0,
+        tilt: 0,
+        sig_mot: 0,
+        fsm_lc: 0,
+        fsm1: 0,
+        fsm2: 0,
+        fsm3: 0,
+        fsm4: 0,
+        fsm5: 0,
+        fsm6: 0,
+        fsm7: 0,
+        fsm8: 0,
+        mlc1: 0,
+        mlc2: 0,
+        mlc3: 0,
+        mlc4: 0,
+    };
+
     err = ism330bx_pin_int1_route_set(&dev_ctx, int1_route);
     if(err != 0) {
         return ISM330BX_ERR_ERROR;
     }
+
     return ISM330BX_ERR_OK;
 }
 
@@ -372,13 +423,21 @@ static uint32_t npy_halfbits_to_floatbits(uint16_t h) {
                 return f_sgn;
             }
             /* Normalize the subnormal number */
-            do {
+
+            h_sig <<= 1;
+            while ((h_sig & 0x0400u) == 0) {
                 h_sig <<= 1;
                 h_exp++;
-            } while ((h_sig & 0x0400u) == 0);
-            f_exp = ((uint32_t)(h_exp + (127 -15))) << 23;
-            f_sig = ((uint32_t)(h_sig & 0x03FFu)) << 13;
+            }
+            f_exp = ((uint32_t)(127 - 15 - h_exp)) << 23;
+            f_sig = ((uint32_t)(h_sig&0x03ffu)) << 13;
             return f_sgn + f_exp + f_sig;
+        case 0x7C00u: /* inf or NaN */
+            /* All-ones exponent and a copy of the significand */
+            return f_sgn + 0x7f800000u + (((uint32_t)(h&0x03ffu)) << 13);
+        default: /* normalized */
+            /* Just need to adjust the exponent and shift */
+            return f_sgn + (((uint32_t)(h&0x7fffu) + 0x1c000u) << 13);
     }
 }
 

@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f3xx_hal_tim.h"
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -114,8 +113,11 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
-  SFLP_INIT();
+
+  SFLP_INIT(&hspi1);
   sflp_init_interrupt();
+  //HAL_TIM_Base_Start_IT(&htim6);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -250,13 +252,13 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 7;
   hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();
@@ -375,13 +377,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_14|LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
 
-  /*Configure GPIO pins : PB0 PB14 LED_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_14|LED_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14|LED_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PB0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : IMU_Interrupt_Pin */
@@ -389,6 +394,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(IMU_Interrupt_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB14 LED_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_14|LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Motor_Fault_Pin */
   GPIO_InitStruct.Pin = Motor_Fault_Pin;
@@ -404,6 +416,7 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -422,7 +435,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
+  CDC_Transmit_FS("ISR\r\n", sizeof("ISR\r\n"));
+
   if(htim->Instance == TIM6) {
+    CDC_Transmit_FS("ISR\r\n", sizeof("ISR\r\n"));
     if(algo_target_type == ALGO_TARGET_ATTITUDE) {
 
       float speed_change;
@@ -450,37 +467,43 @@ static void print_imu_data(sflp_data_frame_s *data) {
   char yaw[30];
   char spin[30];
 
-  snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\nX: %.4f\nY: %.4f\n Z: %.4f\nScalar: %.4f\n",
+  snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\rScalar: %.4f\n\r",
                                 data->game_rotation.x,
                                 data->game_rotation.y,
                                 data->game_rotation.z,
                                 data->game_rotation.w);
 
-  snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
+  snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r",
                                 data->gyroscope.pitch,
                                 data->gyroscope.roll,
                                 data->gyroscope.yaw);
 
-  snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
+  
+
+  snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r",
                                 data->accelerometer.x,
                                 data->accelerometer.y,
                                 data->accelerometer.z);
 
-  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians", data->yaw);
-  snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis", data->yaw_rate);
+  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians \n\r", data->yaw);
+  // snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis\n\r", data->yaw_rate);
 
-  char section_break[] = "--------------------------------------------\n\0";
+  char section_break[] = "-------------------\n\r\0";
 
-  CDC_Transmit_FS(game_rotation_vector, sizeof(game_rotation_vector));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
-  CDC_Transmit_FS(gyroscope_data, sizeof(gyroscope_data));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
-  CDC_Transmit_FS(accelerometer_data, sizeof(accelerometer_data));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
-  CDC_Transmit_FS(yaw, sizeof(yaw));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
-  CDC_Transmit_FS(spin, sizeof(spin));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
+  char print_buffer[355];
+
+  snprintf(print_buffer, sizeof(print_buffer), "%s%s%s%s%s%s%s%s",
+    game_rotation_vector,
+    section_break,
+    gyroscope_data,
+    section_break,
+    accelerometer_data,
+    section_break,
+    yaw,
+    section_break
+  );
+
+  CDC_Transmit_FS(print_buffer, sizeof(print_buffer));
 }
 /* USER CODE END 4 */
 
