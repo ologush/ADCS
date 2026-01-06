@@ -467,37 +467,39 @@ static void print_imu_data(sflp_data_frame_s *data) {
   char yaw[30];
   char spin[30];
 
-  snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\nX: %.4f\nY: %.4f\n Z: %.4f\nScalar: %.4f\n",
+  snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\rScalar: %.4f\n\r",
                                 data->game_rotation.x,
                                 data->game_rotation.y,
                                 data->game_rotation.z,
                                 data->game_rotation.w);
 
-  snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
+  snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r",
                                 data->gyroscope.pitch,
                                 data->gyroscope.roll,
                                 data->gyroscope.yaw);
 
-  snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\nX: %.4f\nY: %.4f\nZ: %.4f\n",
+  
+
+  snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r",
                                 data->accelerometer.x,
                                 data->accelerometer.y,
                                 data->accelerometer.z);
 
-  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians", data->yaw);
-  snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis", data->yaw_rate);
+  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians \n\r", data->yaw);
+  snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis\n\r", data->yaw_rate);
 
-  char section_break[] = "--------------------------------------------\n\0";
+  char section_break[] = "--------------------------------------------\n\r\0";
 
-  CDC_Transmit_FS(game_rotation_vector, sizeof(game_rotation_vector));
+  // CDC_Transmit_FS(game_rotation_vector, sizeof(game_rotation_vector));
+  // CDC_Transmit_FS(section_break, sizeof(section_break));
+  //CDC_Transmit_FS(gyroscope_data, sizeof(gyroscope_data));
   CDC_Transmit_FS(section_break, sizeof(section_break));
-  CDC_Transmit_FS(gyroscope_data, sizeof(gyroscope_data));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
-  CDC_Transmit_FS(accelerometer_data, sizeof(accelerometer_data));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
-  CDC_Transmit_FS(yaw, sizeof(yaw));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
-  CDC_Transmit_FS(spin, sizeof(spin));
-  CDC_Transmit_FS(section_break, sizeof(section_break));
+  // CDC_Transmit_FS(accelerometer_data, sizeof(accelerometer_data));
+  // CDC_Transmit_FS(section_break, sizeof(section_break));
+  // CDC_Transmit_FS(yaw, sizeof(yaw));
+  // CDC_Transmit_FS(section_break, sizeof(section_break));
+  // CDC_Transmit_FS(spin, sizeof(spin));
+  // CDC_Transmit_FS(section_break, sizeof(section_break));
 }
 /* USER CODE END 4 */
 

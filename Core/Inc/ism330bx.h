@@ -51,34 +51,34 @@ typedef struct {
 } SFLP_CONFIG_s;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
-    float_t w;
+    float x;
+    float y;
+    float z;
+    float w;
 } Quaternion;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
+    float x;
+    float y;
+    float z;
 } gravity_vector_s;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
+    float x;
+    float y;
+    float z;
 } gyroscope_bias_s;
 
 typedef struct {
-    float_t pitch;
-    float_t roll;
-    float_t yaw;
+    float pitch;
+    float roll;
+    float yaw;
 } gyroscope_data_s;
 
 typedef struct {
-    float_t x;
-    float_t y;
-    float_t z;
+    float x;
+    float y;
+    float z;
 } accelerometer_data_s;
 
 typedef struct {

@@ -152,7 +152,6 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
     if(err != 0) {
         return ISM330BX_ERR_ERROR;
     }
-    ism330bx_pin_int_route_t checkRoute;
 
     // Route FIFO watermark interrupt to INT1 pin
     ism330bx_pin_int_route_t int1_route = {
@@ -191,13 +190,12 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
         mlc3: 0,
         mlc4: 0,
     };
-    int1_route.fifo_th = PROPERTY_ENABLE;
+
     err = ism330bx_pin_int1_route_set(&dev_ctx, int1_route);
     if(err != 0) {
         return ISM330BX_ERR_ERROR;
     }
-    
-    err = ism330bx_pin_int1_route_get(&dev_ctx, &checkRoute);
+
     return ISM330BX_ERR_OK;
 }
 
