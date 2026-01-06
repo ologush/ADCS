@@ -485,19 +485,21 @@ static void print_imu_data(sflp_data_frame_s *data) {
                                 data->accelerometer.y,
                                 data->accelerometer.z);
 
-  // snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians \n\r", data->yaw);
+  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians \n\r", data->yaw);
   // snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis\n\r", data->yaw_rate);
 
   char section_break[] = "-------------------\n\r\0";
 
-  char print_buffer[304];
+  char print_buffer[355];
 
-  snprintf(print_buffer, sizeof(print_buffer), "%s%s%s%s%s%s",
+  snprintf(print_buffer, sizeof(print_buffer), "%s%s%s%s%s%s%s%s",
     game_rotation_vector,
     section_break,
     gyroscope_data,
     section_break,
     accelerometer_data,
+    section_break,
+    yaw,
     section_break
   );
 
