@@ -35,6 +35,12 @@
 
 
 /* Typedefs */
+
+typedef enum {
+    MOTOR_CTRL_ERR_OK,
+    MOTOR_CTRL_ERR_ERROR
+} MOTOR_ERRORS_e;
+
 typedef struct {
     //Actual measured values
     float motor_resistance;
@@ -75,13 +81,6 @@ typedef struct {
     uint32_t reg_value;
 } eeprom_register_s;
 
-typedef enum {
-    MOTOR_CTRL_ERR_OK,
-    MOTOR_CTRL_ERR_ERROR
-} motor_ctrl_err_e;
-
-
-
 /* Private Variables */
 static I2C_HandleTypeDef *hi2c_motor_ctrl;
 
@@ -89,24 +88,24 @@ static I2C_HandleTypeDef *hi2c_motor_ctrl;
 extern float set_speed;
 
 /* Private function prototypes*/
-static motor_ctrl_err_e motor_write_data_word(motor_data_word_s *data_word);
-static motor_ctrl_err_e motor_read_data_word(motor_data_word_s *data_word, uint8_t *receive_buffer);
-static motor_ctrl_err_e calculate_crc(motor_data_word_s *data_word);
-static motor_ctrl_err_e initial_eeprom_config(void);
-static motor_ctrl_err_e read_eeprom_config(uint32_t *config_data);
+static MOTOR_ERRORS_e motor_write_data_word(motor_data_word_s *data_word);
+static MOTOR_ERRORS_e motor_read_data_word(motor_data_word_s *data_word, uint8_t *receive_buffer);
+static MOTOR_ERRORS_e calculate_crc(motor_data_word_s *data_word);
+static MOTOR_ERRORS_e initial_eeprom_config(void);
+static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data);
 
 
 /* Public function prototypes */
-motor_ctrl_err_e motor_control_init(I2C_HandleTypeDef *hi2c);
-motor_ctrl_err_e motor_parameter_extraction(motor_parameters_s *motor_params);
-motor_ctrl_err_e write_config_to_eeprom();
-motor_ctrl_err_e read_config_from_eeprom();
-motor_ctrl_err_e motor_startup_sequence(void);
-motor_ctrl_err_e motor_set_speed(float speed_rpm);
-motor_ctrl_err_e motor_get_speed(float *speed_rpm);
-motor_ctrl_err_e get_fault();
-motor_ctrl_err_e clear_fault(void);
-motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params);
-motor_ctrl_err_e run_mpet(void);
+MOTOR_ERRORS_e motor_ctrl_init(I2C_HandleTypeDef *hi2c);
+MOTOR_ERRORS_e motor_parameter_extraction(motor_parameters_s *motor_params);
+MOTOR_ERRORS_e write_config_to_eeprom();
+MOTOR_ERRORS_e read_config_from_eeprom();
+MOTOR_ERRORS_e motor_startup_sequence(void);
+MOTOR_ERRORS_e motor_set_speed(float speed_rpm);
+MOTOR_ERRORS_e motor_get_speed(float *speed_rpm);
+MOTOR_ERRORS_e get_fault();
+MOTOR_ERRORS_e clear_fault(void);
+MOTOR_ERRORS_e extract_motor_params(motor_parameters_s *extracted_params);
+MOTOR_ERRORS_e run_mpet(void);
 
 #endif

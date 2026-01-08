@@ -4,7 +4,6 @@
 
 #include "ism330bx_reg.h"
 #include "stm32f3xx_hal.h"
-#include "stm32f3xx_hal_i2c.h"
 #include <math.h>
 
 
