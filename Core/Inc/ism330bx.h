@@ -126,6 +126,8 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void);
 ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame);
 ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw);
 ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second);
+ISM330BX_ERRORS_e calibrate_gyroscope(void);
+ISM330BX_ERRORS_e calibrate_accelerometer(void);
 
 
 

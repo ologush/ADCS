@@ -450,3 +450,29 @@ ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw) {
 ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second) {
     *rad_per_second = deg_per_second * (M_PI / 180.0f);
 }
+
+ISM330BX_ERRORS_e calibrate_gyroscope(void) {
+
+    return ISM330BX_ERR_OK;
+}
+
+ISM330BX_ERRORS_e calibrate_accelerometer(void) {
+
+    ism330bx_ctrl9_t ctrl9;
+    ism330bx_read_reg(&dev_ctx, ISM330BX_CTRL9, (uint8_t*)&ctrl9, 1);
+    //0 = 2^-10 g/LSB, 1 = 2^-6 g/LSB
+    ctrl9.usr_off_w = 0b1;
+    ctrl9.usr_off_on_out = 0b1;
+    ism330bx_write_reg(&dev_ctx, ISM330BX_CTRL9, (uint8_t*)&ctrl9, 1);
+
+    // Collect data for bias calculation
+    ism330bx_x_ofs_usr_t x_offset;
+    ism330bx_y_ofs_usr_t y_offset;
+    ism330bx_z_ofs_usr_t z_offset;
+    
+    ism330bx_write_reg(&dev_ctx, ISM330BX_X_OFS_USR, (uint8_t*)&x_offset, 1);
+    ism330bx_write_reg(&dev_ctx, ISM330BX_Y_OFS_USR, (uint8_t*)&y_offset, 1);
+    ism330bx_write_reg(&dev_ctx, ISM330BX_Z_OFS_USR, (uint8_t*)&z_offset, 1);
+
+    return ISM330BX_ERR_OK;
+}
