@@ -55,7 +55,8 @@ SFLP_CONFIG_s SFLP_config = {
     .sflp_data_rate = SFLP_RATE,
     .game_rotation = SFLP_MODE_ENABLE,
     .gravity = SFLP_MODE_DISABLE,
-    .gbias = SFLP_MODE_DISABLE
+    .gbias = SFLP_MODE_DISABLE,
+    .offset_xl = ISM330BX_XL_OFS_0
 };
 
 ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle) {
@@ -93,6 +94,8 @@ ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle) {
     /* Set the scale of the accelerometer and gyroscope. Keep low for best accuracy */
     ism330bx_xl_full_scale_set(&dev_ctx, SFLP_config.xl_scale);
     ism330bx_gy_full_scale_set(&dev_ctx, SFLP_config.gy_scale);
+
+    calibrate_accelerometer();
 
     /*
         Set FIFO watermark. 
@@ -230,7 +233,7 @@ ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame) {
                     deg_s_to_rad_s(target_data_frame->gyroscope.yaw, &target_data_frame->yaw_rate);
                     break;
                 case ISM330BX_XL_NC_TAG: //Not sure what the differnt accelerometer tags are, assuming this first one is correct for now
-                    accelerometer_raw_to_float(&target_data_frame->accelerometer, (uint16_t*)&fifo_data.data[0]);
+                    fifo_accelerometer_raw_to_float(&target_data_frame->accelerometer, (uint16_t*)&fifo_data.data[0]);
                     break;
                 default:
                     // Unknown tag, skip
@@ -245,7 +248,7 @@ ISM330BX_ERRORS_e get_fifo_buffer() {
     return ISM330BX_ERR_OK;
 }
 
-static ISM330BX_ERRORS_e accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
+ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
     switch(SFLP_config.xl_scale) {
         case ISM330BX_2g:
             target_vector->x = ism330bx_from_fs2_to_mg(data[0]);
@@ -261,6 +264,31 @@ static ISM330BX_ERRORS_e accelerometer_raw_to_float(accelerometer_data_s *target
             target_vector->x = ism330bx_from_fs8_to_mg(data[0]);
             target_vector->y = ism330bx_from_fs8_to_mg(data[1]);
             target_vector->z = ism330bx_from_fs8_to_mg(data[2]);
+            break;
+        default:
+            return ISM330BX_ERR_ERROR;
+            break;
+    }
+
+    return ISM330BX_ERR_OK;
+}
+
+ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
+    switch(SFLP_config.xl_scale) {
+        case ISM330BX_2g:
+            target_vector->z = ism330bx_from_fs2_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs2_to_mg(data[1]);
+            target_vector->x = ism330bx_from_fs2_to_mg(data[2]);
+            break;
+        case ISM330BX_4g:
+            target_vector->z = ism330bx_from_fs4_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs4_to_mg(data[1]);
+            target_vector->x = ism330bx_from_fs4_to_mg(data[2]);
+            break;
+        case ISM330BX_8g:
+            target_vector->z = ism330bx_from_fs8_to_mg(data[0]);
+            target_vector->y = ism330bx_from_fs8_to_mg(data[1]);
+            target_vector->x = ism330bx_from_fs8_to_mg(data[2]);
             break;
         default:
             return ISM330BX_ERR_ERROR;
@@ -458,21 +486,54 @@ ISM330BX_ERRORS_e calibrate_gyroscope(void) {
 
 ISM330BX_ERRORS_e calibrate_accelerometer(void) {
 
-    ism330bx_ctrl9_t ctrl9;
-    ism330bx_read_reg(&dev_ctx, ISM330BX_CTRL9, (uint8_t*)&ctrl9, 1);
-    //0 = 2^-10 g/LSB, 1 = 2^-6 g/LSB
-    ctrl9.usr_off_w = 0b1;
-    ctrl9.usr_off_on_out = 0b1;
-    ism330bx_write_reg(&dev_ctx, ISM330BX_CTRL9, (uint8_t*)&ctrl9, 1);
+    int8_t x_offset;
+    int8_t y_offset;
+    int8_t z_offset;
 
-    // Collect data for bias calculation
-    ism330bx_x_ofs_usr_t x_offset;
-    ism330bx_y_ofs_usr_t y_offset;
-    ism330bx_z_ofs_usr_t z_offset;
+    uint8_t n_samples = 5;
+
+    ism330bx_ctrl9_t ctrl9;
+
+    accelerometer_data_s offset = {0};
+
+    for(uint8_t i = 0; i < n_samples; i++) {
+        int16_t acc_raw[3];
+        accelerometer_data_s current_sample = {0};
+        ism330bx_acceleration_raw_get(&dev_ctx, acc_raw);
+        reg_accelerometer_raw_to_float(&current_sample, acc_raw);
+        offset.x += current_sample.x / n_samples;
+        offset.y += current_sample.y / n_samples;
+        offset.z += current_sample.z / n_samples;
+        platform_delay(20);
+    }
+
+    ism330bx_read_reg(&dev_ctx, ISM330BX_CTRL9, (uint8_t*)&ctrl9, 1);
+
+    switch(SFLP_config.offset_xl) {
+        case ISM330BX_XL_OFS_0:
+            x_offset = (int8_t)(-offset.x / 0.9765625f); // 2^-10 g/LSB
+            y_offset = (int8_t)(-offset.y / 0.9765625f);
+            z_offset = (int8_t)((1000.0f - offset.z) / 0.9765625f); //Assuming static 1g on Z axis
+            
+            break;
+        case ISM330BX_XL_OFS_1:
+            x_offset = (int8_t)(-offset.x / 15.625f); // 2^-6 g/LSB
+            y_offset = (int8_t)(-offset.y / 15.625f);
+            z_offset = (int8_t)((1000.0f - offset.z) / 15.625f); //Assuming static 1g on Z axis
+            ctrl9.usr_off_w = 0b1;
+            break;
+        default:
+            return ISM330BX_ERR_ERROR;
+            break;
+    }
+
+    ctrl9.usr_off_on_out = 0b1;
     
-    ism330bx_write_reg(&dev_ctx, ISM330BX_X_OFS_USR, (uint8_t*)&x_offset, 1);
-    ism330bx_write_reg(&dev_ctx, ISM330BX_Y_OFS_USR, (uint8_t*)&y_offset, 1);
-    ism330bx_write_reg(&dev_ctx, ISM330BX_Z_OFS_USR, (uint8_t*)&z_offset, 1);
+    ism330bx_write_reg(&dev_ctx, ISM330BX_CTRL9, (uint8_t*)&ctrl9, 1);
+    
+    ism330bx_write_reg(&dev_ctx, ISM330BX_X_OFS_USR, &x_offset, 1);
+    ism330bx_write_reg(&dev_ctx, ISM330BX_Y_OFS_USR, &y_offset, 1);
+    ism330bx_write_reg(&dev_ctx, ISM330BX_Z_OFS_USR, &z_offset, 1);
 
     return ISM330BX_ERR_OK;
 }

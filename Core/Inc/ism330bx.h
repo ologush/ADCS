@@ -27,6 +27,11 @@ typedef enum {
 } ISM330BX_ERRORS_e;
 
 typedef enum {
+    ISM330BX_XL_OFS_0,
+    ISM330BX_XL_OFS_1
+} ISM330BX_XL_OFFSET_e;
+
+typedef enum {
     SFLP_MODE_ENABLE,
     SFLP_MODE_DISABLE
 } SFLP_MODE_SET_e;
@@ -46,6 +51,8 @@ typedef struct {
 
     ism330bx_fifo_xl_batch_t xl_batch_rate;
     ism330bx_fifo_gy_batch_t gy_batch_rate;
+
+    ISM330BX_XL_OFFSET_e offset_xl;
 
 } SFLP_CONFIG_s;
 
@@ -117,7 +124,8 @@ static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, uint16_t d
 static uint32_t npy_halfbits_to_floatbits(uint16_t h);
 static float_t npy_half_to_float(uint16_t h);
 
-static ISM330BX_ERRORS_e accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
+ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
+ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
 static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]);
 
 /* Public Functions */

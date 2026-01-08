@@ -92,9 +92,8 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
   /* USER CODE BEGIN Init */
-
+  HAL_Delay(2000);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -428,7 +427,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if(GPIO_Pin == IMU_Interrupt_Pin) {
       // Call IMU data handler
       get_fifo_frame(&new_sflp_data);
-      
+      accelerometer_data_s test_sample = {0};
+      int16_t raw_data[3] = {0};
+      ism330bx_acceleration_raw_get(&dev_ctx, raw_data);
+      reg_accelerometer_raw_to_float(&test_sample, raw_data);
       // May need to disable interrupt, but will kep this as the highest priority for now
       memcpy(&current_sflp_data, &new_sflp_data, sizeof(sflp_data_frame_s));
 
