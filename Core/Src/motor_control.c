@@ -179,6 +179,8 @@ static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data) {
 
         config_data[(i - MCF8315_EEPROM_ISD_CONFIG_REG) / 2] = (uint32_t)((receive_buffer[0]) << 24 | (receive_buffer[1] << 16) | (receive_buffer[2] << 8) | (receive_buffer[3]));
     }
+
+    return MOTOR_CTRL_ERR_OK;
 }
 
 /* Global function definitions */

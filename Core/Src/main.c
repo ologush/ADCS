@@ -117,8 +117,8 @@ int main(void)
   SFLP_INIT(&hspi1);
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-  motor_ctrl_init(&hi2c2);
-  //sflp_init_interrupt();
+  //motor_ctrl_init(&hi2c2);
+  sflp_init_interrupt();
   //HAL_TIM_Base_Start_IT(&htim6);
 
   /* USER CODE END 2 */
@@ -464,47 +464,30 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 }
 
 static void print_imu_data(sflp_data_frame_s *data) {
-  char game_rotation_vector[80];
-  char gyroscope_data[80];
-  char accelerometer_data[80];
-  char yaw[30];
-  char spin[30];
 
-  snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\rScalar: %.4f\n\r",
+  char print_buffer[355];
+  char section_break[] = "-------------------\n\r\0";
+
+  uint16_t print_buffer_index = snprintf(print_buffer, sizeof(print_buffer), "Game rotation vector:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\rScalar: %.4f\n\r%s\n\r",
                                 data->game_rotation.x,
                                 data->game_rotation.y,
                                 data->game_rotation.z,
-                                data->game_rotation.w);
-
-  snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r",
+                                data->game_rotation.w,
+                                section_break);
+  
+  print_buffer_index += snprintf(print_buffer + print_buffer_index, sizeof(print_buffer) - print_buffer_index, "Gyroscope data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r%s\n\r",
                                 data->gyroscope.pitch,
                                 data->gyroscope.roll,
-                                data->gyroscope.yaw);
+                                data->gyroscope.yaw,
+                                section_break);
 
-  
-
-  snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r",
+  print_buffer_index += snprintf(print_buffer + print_buffer_index, sizeof(print_buffer) - print_buffer_index, "Accelerometer data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r%s\n\r",
                                 data->accelerometer.x,
                                 data->accelerometer.y,
-                                data->accelerometer.z);
+                                data->accelerometer.z,
+                                section_break);
 
-  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians \n\r", data->yaw);
-  // snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis\n\r", data->yaw_rate);
-
-  char section_break[] = "-------------------\n\r\0";
-
-  char print_buffer[355];
-
-  snprintf(print_buffer, sizeof(print_buffer), "%s%s%s%s%s%s%s%s",
-    game_rotation_vector,
-    section_break,
-    gyroscope_data,
-    section_break,
-    accelerometer_data,
-    section_break,
-    yaw,
-    section_break
-  );
+  print_buffer_index += snprintf(print_buffer + print_buffer_index, sizeof(print_buffer) - print_buffer_index, "Yaw is: %.4f radians \n\r%s\n\r", data->yaw, section_break);
 
   CDC_Transmit_FS(print_buffer, sizeof(print_buffer));
 }
