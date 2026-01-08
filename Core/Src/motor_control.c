@@ -23,7 +23,7 @@ eeprom_register_s eeprom_default_config[] = {
 };
 /* Private function definitions */
 
-static motor_ctrl_err_e motor_write_data_word(motor_data_word_s *data_word)
+static MOTOR_ERRORS_e motor_write_data_word(motor_data_word_s *data_word)
 {
     uint8_t data_length = 4;
     
@@ -55,7 +55,7 @@ static motor_ctrl_err_e motor_write_data_word(motor_data_word_s *data_word)
 
     uint8_t tx_buffer[data_length];
 
-    tx_buffer[0] = (data_word->target_id << 1) | (data_word->read_write_bit & 0x01);
+    tx_buffer[0] = (uint8_t)((data_word->target_id << 1) | (data_word->read_write_bit & 0x01));
     tx_buffer[1] = (data_word->control_word.op_rw & 0x01) << 7  |
                    (data_word->control_word.crc_en & 0x01) << 6 |
                    (data_word->control_word.d_len & 0x03) << 4 |
@@ -73,12 +73,15 @@ static motor_ctrl_err_e motor_write_data_word(motor_data_word_s *data_word)
         }
         tx_buffer[data_length - 1] = data_word->crc;
     }
-
-    HAL_I2C_Master_Transmit(hi2c_motor_ctrl, tx_buffer[0], tx_buffer + 1, data_length - 1, HAL_MAX_DELAY);
+    HAL_StatusTypeDef ret;
+    ret = HAL_I2C_Master_Transmit(hi2c_motor_ctrl, tx_buffer[0], tx_buffer + 1, data_length - 1, HAL_MAX_DELAY);
+    if(ret != HAL_OK) {
+        return MOTOR_CTRL_ERR_ERROR;
+    }
     return MOTOR_CTRL_ERR_OK;
 }
 
-static motor_ctrl_err_e motor_read_data_word(motor_data_word_s *data_word_tx, uint8_t *receive_buffer) {
+static MOTOR_ERRORS_e motor_read_data_word(motor_data_word_s *data_word_tx, uint8_t *receive_buffer) {
 
     uint8_t data_length = 0;
     
@@ -128,7 +131,7 @@ static motor_ctrl_err_e motor_read_data_word(motor_data_word_s *data_word_tx, ui
     }
 }
 
-static motor_ctrl_err_e calculate_crc(motor_data_word_s *data_word) {
+static MOTOR_ERRORS_e calculate_crc(motor_data_word_s *data_word) {
 
     /* Todo: Implement Algorithm */
     return MOTOR_CTRL_ERR_OK;
@@ -136,10 +139,29 @@ static motor_ctrl_err_e calculate_crc(motor_data_word_s *data_word) {
 
 
 
-static motor_ctrl_err_e read_eeprom_config(uint32_t *config_data) {
+static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data) {
     motor_data_word_s retreival_data_word;
 
-    for(uint8_t i = MCF8315_EEPROM_ISD_CONFIG_REG; i<= MCF8315_EEPROM_REF_PROFILES6_REG; i+=2) {
+    //Write 0x40000000 to register 0x0000EA to read the EEPROM data into the shadow/RAM registers 0x000080 to 0x0000AE
+
+    retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
+    retreival_data_word.read_write_bit = OP_RW_WRITE;
+    retreival_data_word.control_word.op_rw = OP_RW_WRITE;
+    retreival_data_word.control_word.crc_en = CRC_EN_DISABLE;
+    retreival_data_word.control_word.d_len = D_LEN_32_BIT;
+    retreival_data_word.data[0] = 0x40;
+    retreival_data_word.data[1] = 0x00;
+    retreival_data_word.data[2] = 0x00;
+    retreival_data_word.data[3] = 0x00;
+    retreival_data_word.control_word.mem_sec = 0;
+    retreival_data_word.control_word.mem_page = 0;
+    retreival_data_word.control_word.mem_addr = 0xEA;
+
+    motor_write_data_word(&retreival_data_word);
+
+    HAL_Delay(100); //Wait for EEPROM read to complete
+
+    for(uint8_t i = MCF8315_EEPROM_ISD_CONFIG_REG; i<= MCF8315_EEPROM_GD_CONFIG2_REG; i+=2) {
         retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
         retreival_data_word.read_write_bit = OP_RW_WRITE;
         retreival_data_word.control_word.op_rw = OP_RW_READ;
@@ -152,26 +174,32 @@ static motor_ctrl_err_e read_eeprom_config(uint32_t *config_data) {
         uint8_t receive_buffer[4];
         motor_read_data_word(&retreival_data_word, receive_buffer);
 
-        config_data[(i - MCF8315_EEPROM_ISD_CONFIG_REG) / 2] = (uint32_t)(receive_buffer[0] << 24 | receive_buffer[1] << 16 | receive_buffer[2] << 8 | receive_buffer[3]);
+        uint8_t index = (i - MCF8315_EEPROM_ISD_CONFIG_REG) / 2;
+        uint32_t value = (uint32_t)((receive_buffer[0]) << 24 | (receive_buffer[1] << 16) | (receive_buffer[2] << 8) | (receive_buffer[3]));
+
+        config_data[(i - MCF8315_EEPROM_ISD_CONFIG_REG) / 2] = (uint32_t)((receive_buffer[0]) << 24 | (receive_buffer[1] << 16) | (receive_buffer[2] << 8) | (receive_buffer[3]));
     }
 }
 
 /* Global function definitions */
 
-motor_ctrl_err_e motor_ctrl_init(I2C_HandleTypeDef *hi2c)
+
+MOTOR_ERRORS_e motor_ctrl_init(I2C_HandleTypeDef *hi2c)
 {
-    *hi2c_motor_ctrl = *hi2c;
+    hi2c_motor_ctrl = hi2c;
+    uint32_t config_data[14];
+    read_eeprom_config(config_data);
     return MOTOR_CTRL_ERR_OK;
 }
 
-motor_ctrl_err_e motor_startup_sequence(void) {
+MOTOR_ERRORS_e motor_startup_sequence(void) {
     //First set speed ref > 0
     uint32_t motor_speed = 100.0f;
     motor_set_speed(motor_speed);
 
 }
 
-motor_ctrl_err_e motor_set_speed(float speed_rpm) {
+MOTOR_ERRORS_e motor_set_speed(float speed_rpm) {
 
     if(speed_rpm > MAX_RPM) {
         return MOTOR_CTRL_ERR_ERROR;
@@ -214,7 +242,7 @@ motor_ctrl_err_e motor_set_speed(float speed_rpm) {
     return MOTOR_CTRL_ERR_OK;
 }
 
-motor_ctrl_err_e motor_get_speed(float *speed_rpm) {
+MOTOR_ERRORS_e motor_get_speed(float *speed_rpm) {
     motor_data_word_s speed_access;
 
     speed_access.target_id = MCF8315D_I2C_ADDRESS;
@@ -233,7 +261,7 @@ motor_ctrl_err_e motor_get_speed(float *speed_rpm) {
     *speed_rpm = (register_value/pow(2, 27)) * MAX_SPEED * 60;
 }
 
-motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params) {
+MOTOR_ERRORS_e extract_motor_params(motor_parameters_s *extracted_params) {
 
     motor_data_word_s extract_word;
     extract_word.target_id = MCF8315D_I2C_ADDRESS;
@@ -273,7 +301,7 @@ motor_ctrl_err_e extract_motor_params(motor_parameters_s *extracted_params) {
     return MOTOR_CTRL_ERR_OK;
 }
 
-motor_ctrl_err_e run_mpet(void) {
+MOTOR_ERRORS_e run_mpet(void) {
 
     motor_data_word_s mpet_enable;
     mpet_enable.target_id = MCF8315D_I2C_ADDRESS;
@@ -294,7 +322,7 @@ motor_ctrl_err_e run_mpet(void) {
     return MOTOR_CTRL_ERR_OK;
 }
 
-motor_ctrl_err_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fault) {
+MOTOR_ERRORS_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fault) {
     motor_data_word_s read_fault;
     read_fault.target_id = MCF8315D_I2C_ADDRESS;
     read_fault.read_write_bit = OP_RW_WRITE;
@@ -316,7 +344,7 @@ motor_ctrl_err_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fau
 
 }
 
-motor_ctrl_err_e clear_fault() {
+MOTOR_ERRORS_e clear_fault() {
     motor_data_word_s clear_fault;
     clear_fault.target_id = MCF8315D_I2C_ADDRESS;
     clear_fault.read_write_bit = OP_RW_WRITE;

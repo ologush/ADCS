@@ -115,7 +115,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   SFLP_INIT(&hspi1);
-  sflp_init_interrupt();
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+  motor_ctrl_init(&hi2c2);
+  //sflp_init_interrupt();
   //HAL_TIM_Base_Start_IT(&htim6);
 
   /* USER CODE END 2 */
