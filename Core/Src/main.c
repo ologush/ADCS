@@ -48,8 +48,6 @@ I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 
-TIM_HandleTypeDef htim6;
-
 USART_HandleTypeDef husart3;
 DMA_HandleTypeDef hdma_usart3_rx;
 DMA_HandleTypeDef hdma_usart3_tx;
@@ -66,7 +64,6 @@ static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_Init(void);
-static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -92,6 +89,7 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
   /* USER CODE BEGIN Init */
   HAL_Delay(2000);
   /* USER CODE END Init */
@@ -110,7 +108,6 @@ int main(void)
   MX_SPI1_Init();
   MX_USART3_Init();
   MX_USB_DEVICE_Init();
-  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
   SFLP_INIT(&hspi1);
@@ -272,44 +269,6 @@ static void MX_SPI1_Init(void)
 }
 
 /**
-  * @brief TIM6 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM6_Init(void)
-{
-
-  /* USER CODE BEGIN TIM6_Init 0 */
-
-  /* USER CODE END TIM6_Init 0 */
-
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM6_Init 1 */
-
-  /* USER CODE END TIM6_Init 1 */
-  htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 6540;
-  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 366;
-  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM6_Init 2 */
-
-  /* USER CODE END TIM6_Init 2 */
-
-}
-
-/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -427,41 +386,28 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if(GPIO_Pin == IMU_Interrupt_Pin) {
       // Call IMU data handler
       get_fifo_frame(&new_sflp_data);
-      accelerometer_data_s test_sample = {0};
-      int16_t raw_data[3] = {0};
-      ism330bx_acceleration_raw_get(&dev_ctx, raw_data);
-      reg_accelerometer_raw_to_float(&test_sample, raw_data);
       // May need to disable interrupt, but will kep this as the highest priority for now
       memcpy(&current_sflp_data, &new_sflp_data, sizeof(sflp_data_frame_s));
 
       print_imu_data(&current_sflp_data);
 
-  }
-}
+      if(algo_target_type == ALGO_TARGET_ATTITUDE) {
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
-  CDC_Transmit_FS("ISR\r\n", sizeof("ISR\r\n"));
+        float speed_change;
 
-  if(htim->Instance == TIM6) {
-    CDC_Transmit_FS("ISR\r\n", sizeof("ISR\r\n"));
-    if(algo_target_type == ALGO_TARGET_ATTITUDE) {
-
-      float speed_change;
-
-      iteration(&attitude_control, &speed_change);
-      set_speed += speed_change;
-      motor_set_speed(set_speed);
+        iteration(&attitude_control, &speed_change);
+        set_speed += speed_change;
+        motor_set_speed(set_speed);
       
-    } else if(algo_target_type == ALGO_TARGET_SPIN_RATE) {
+      } else if(algo_target_type == ALGO_TARGET_SPIN_RATE) {
 
-      float speed_change;
+        float speed_change;
 
-      iteration(&spin_control, &speed_change);
-      set_speed += speed_change;
-      motor_set_speed(set_speed);
+        iteration(&spin_control, &speed_change);
+        set_speed += speed_change;
+        motor_set_speed(set_speed);
 
-    }
+      }
   }
 }
 
