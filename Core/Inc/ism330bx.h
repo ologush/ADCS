@@ -104,11 +104,7 @@ typedef struct {
 } SFLP_CONFIG_s;
 
 /* Private Variables */
-static uint8_t tx_buffer[1000];
-
 static ism330bx_fifo_sflp_raw_t fifo_sflp;
-
-static SFLP_CONFIG_s sflp_config;
 
 /* Public Variables */
 extern stmdev_ctx_t dev_ctx;
@@ -132,17 +128,17 @@ static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, raw_gyrosc
 static uint32_t npy_halfbits_to_floatbits(uint16_t h);
 static float_t npy_half_to_float(uint16_t h);
 
-ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
+static ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_vector, int16_t data[3]);
 ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
 static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]);
 static ISM330BX_ERRORS_e apply_gyroscope_bias(gyroscope_data_s *target);
+static ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw);
+static ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second);
 
 /* Public Functions */
 ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle);
 ISM330BX_ERRORS_e sflp_init_interrupt(void);
 ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame);
-ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw);
-ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second);
 ISM330BX_ERRORS_e calibrate_gyroscope(SFLP_CONFIG_s *config);
 ISM330BX_ERRORS_e calibrate_accelerometer(void);
 
