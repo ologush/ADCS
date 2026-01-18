@@ -37,24 +37,7 @@ typedef enum {
 } SFLP_MODE_SET_e;
 
 /* Structs */
-typedef struct {
-    SFLP_MODE_SET_e game_rotation;
-    SFLP_MODE_SET_e gravity;
-    SFLP_MODE_SET_e gbias;
 
-    ism330bx_xl_full_scale_t xl_scale;
-    ism330bx_gy_full_scale_t gy_scale;
-    
-    ism330bx_xl_data_rate_t xl_data_rate;
-    ism330bx_gy_data_rate_t gy_data_rate;
-    ism330bx_sflp_data_rate_t sflp_data_rate;
-
-    ism330bx_fifo_xl_batch_t xl_batch_rate;
-    ism330bx_fifo_gy_batch_t gy_batch_rate;
-    ISM330BX_XL_OFFSET_e offset_xl;
-    gyroscope_bias_s gy_offset;
-
-} SFLP_CONFIG_s;
 
 typedef struct {
     uint16_t x;
@@ -101,6 +84,25 @@ typedef struct {
     float yaw_rate;
 } sflp_data_frame_s;
 
+typedef struct {
+    SFLP_MODE_SET_e game_rotation;
+    SFLP_MODE_SET_e gravity;
+    SFLP_MODE_SET_e gbias;
+
+    ism330bx_xl_full_scale_t xl_scale;
+    ism330bx_gy_full_scale_t gy_scale;
+    
+    ism330bx_xl_data_rate_t xl_data_rate;
+    ism330bx_gy_data_rate_t gy_data_rate;
+    ism330bx_sflp_data_rate_t sflp_data_rate;
+
+    ism330bx_fifo_xl_batch_t xl_batch_rate;
+    ism330bx_fifo_gy_batch_t gy_batch_rate;
+    ISM330BX_XL_OFFSET_e offset_xl;
+    gyroscope_bias_s gy_offset;
+
+} SFLP_CONFIG_s;
+
 /* Private Variables */
 static uint8_t tx_buffer[1000];
 
@@ -133,6 +135,7 @@ static float_t npy_half_to_float(uint16_t h);
 ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
 ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
 static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]);
+static ISM330BX_ERRORS_e apply_gyroscope_bias(gyroscope_data_s *target);
 
 /* Public Functions */
 ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle);

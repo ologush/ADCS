@@ -230,6 +230,7 @@ ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame) {
                     break;
                 case ISM330BX_GY_NC_TAG: //Not sure what the differnt gyroscope tags are, assuming this first one is correct for now
                     gyroscope_raw_to_float(&target_data_frame->gyroscope, (uint16_t*)&fifo_data.data[0]);
+                    apply_gyroscope_bias(&target_data_frame->gyroscope);
                     deg_s_to_rad_s(target_data_frame->gyroscope.yaw, &target_data_frame->yaw_rate);
                     break;
                 case ISM330BX_XL_NC_TAG: //Not sure what the differnt accelerometer tags are, assuming this first one is correct for now
@@ -241,6 +242,15 @@ ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame) {
             }
         }
     }
+    return ISM330BX_ERR_OK;
+}
+
+static ISM330BX_ERRORS_e apply_gyroscope_bias(gyroscope_data_s *target) {
+
+    target->pitch -= SFLP_config.gy_offset.x;
+    target->roll -= SFLP_config.gy_offset.y;
+    target->yaw -= SFLP_config.gy_offset.z;
+
     return ISM330BX_ERR_OK;
 }
 
