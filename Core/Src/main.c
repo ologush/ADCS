@@ -48,8 +48,6 @@ I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 
-TIM_HandleTypeDef htim6;
-
 USART_HandleTypeDef husart3;
 DMA_HandleTypeDef hdma_usart3_rx;
 DMA_HandleTypeDef hdma_usart3_tx;
@@ -66,7 +64,6 @@ static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_Init(void);
-static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -94,7 +91,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  HAL_Delay(2000);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -111,14 +108,13 @@ int main(void)
   MX_SPI1_Init();
   MX_USART3_Init();
   MX_USB_DEVICE_Init();
-  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
   SFLP_INIT(&hspi1);
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-  motor_ctrl_init(&hi2c2);
-  //sflp_init_interrupt();
+  //motor_ctrl_init(&hi2c2);
+  sflp_init_interrupt();
   //HAL_TIM_Base_Start_IT(&htim6);
 
   /* USER CODE END 2 */
@@ -273,44 +269,6 @@ static void MX_SPI1_Init(void)
 }
 
 /**
-  * @brief TIM6 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM6_Init(void)
-{
-
-  /* USER CODE BEGIN TIM6_Init 0 */
-
-  /* USER CODE END TIM6_Init 0 */
-
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM6_Init 1 */
-
-  /* USER CODE END TIM6_Init 1 */
-  htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 6540;
-  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 366;
-  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM6_Init 2 */
-
-  /* USER CODE END TIM6_Init 2 */
-
-}
-
-/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -428,83 +386,56 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if(GPIO_Pin == IMU_Interrupt_Pin) {
       // Call IMU data handler
       get_fifo_frame(&new_sflp_data);
-      
       // May need to disable interrupt, but will kep this as the highest priority for now
       memcpy(&current_sflp_data, &new_sflp_data, sizeof(sflp_data_frame_s));
 
       print_imu_data(&current_sflp_data);
 
-  }
-}
+      if(algo_target_type == ALGO_TARGET_ATTITUDE) {
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
-  CDC_Transmit_FS("ISR\r\n", sizeof("ISR\r\n"));
+        float speed_change;
 
-  if(htim->Instance == TIM6) {
-    CDC_Transmit_FS("ISR\r\n", sizeof("ISR\r\n"));
-    if(algo_target_type == ALGO_TARGET_ATTITUDE) {
-
-      float speed_change;
-
-      iteration(&attitude_control, &speed_change);
-      set_speed += speed_change;
-      motor_set_speed(set_speed);
+        iteration(&attitude_control, &speed_change);
+        set_speed += speed_change;
+        motor_set_speed(set_speed);
       
-    } else if(algo_target_type == ALGO_TARGET_SPIN_RATE) {
+      } else if(algo_target_type == ALGO_TARGET_SPIN_RATE) {
 
-      float speed_change;
+        float speed_change;
 
-      iteration(&spin_control, &speed_change);
-      set_speed += speed_change;
-      motor_set_speed(set_speed);
+        iteration(&spin_control, &speed_change);
+        set_speed += speed_change;
+        motor_set_speed(set_speed);
 
-    }
+      }
   }
 }
 
 static void print_imu_data(sflp_data_frame_s *data) {
-  char game_rotation_vector[80];
-  char gyroscope_data[80];
-  char accelerometer_data[80];
-  char yaw[30];
-  char spin[30];
 
-  snprintf(game_rotation_vector, sizeof(game_rotation_vector), "Game rotation vector:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\rScalar: %.4f\n\r",
+  char print_buffer[355];
+  char section_break[] = "-------------------\n\r\0";
+
+  uint16_t print_buffer_index = snprintf(print_buffer, sizeof(print_buffer), "Game rotation vector:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\rScalar: %.4f\n\r%s\n\r",
                                 data->game_rotation.x,
                                 data->game_rotation.y,
                                 data->game_rotation.z,
-                                data->game_rotation.w);
-
-  snprintf(gyroscope_data, sizeof(gyroscope_data), "Gyroscope data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r",
+                                data->game_rotation.w,
+                                section_break);
+  
+  print_buffer_index += snprintf(print_buffer + print_buffer_index, sizeof(print_buffer) - print_buffer_index, "Gyroscope data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r%s\n\r",
                                 data->gyroscope.pitch,
                                 data->gyroscope.roll,
-                                data->gyroscope.yaw);
+                                data->gyroscope.yaw,
+                                section_break);
 
-  
-
-  snprintf(accelerometer_data, sizeof(accelerometer_data), "Accelerometer data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r",
+  print_buffer_index += snprintf(print_buffer + print_buffer_index, sizeof(print_buffer) - print_buffer_index, "Accelerometer data:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\r%s\n\r",
                                 data->accelerometer.x,
                                 data->accelerometer.y,
-                                data->accelerometer.z);
+                                data->accelerometer.z,
+                                section_break);
 
-  snprintf(yaw, sizeof(yaw), "Yaw is: %.4f radians \n\r", data->yaw);
-  // snprintf(spin, sizeof(spin), "Spin rate is: %.4f radians/s around the Z-axis\n\r", data->yaw_rate);
-
-  char section_break[] = "-------------------\n\r\0";
-
-  char print_buffer[355];
-
-  snprintf(print_buffer, sizeof(print_buffer), "%s%s%s%s%s%s%s%s",
-    game_rotation_vector,
-    section_break,
-    gyroscope_data,
-    section_break,
-    accelerometer_data,
-    section_break,
-    yaw,
-    section_break
-  );
+  print_buffer_index += snprintf(print_buffer + print_buffer_index, sizeof(print_buffer) - print_buffer_index, "Yaw is: %.4f radians \n\r%s\n\r", data->yaw, section_break);
 
   CDC_Transmit_FS(print_buffer, sizeof(print_buffer));
 }
