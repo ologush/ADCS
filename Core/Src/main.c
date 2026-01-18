@@ -55,6 +55,8 @@ DMA_HandleTypeDef hdma_usart3_tx;
 /* USER CODE BEGIN PV */
 sflp_data_frame_s current_sflp_data;
 sflp_data_frame_s new_sflp_data;
+// Need to replace this with proper attitude control structure
+float set_speed = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/

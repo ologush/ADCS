@@ -8,13 +8,11 @@
 #include <stdint.h>
 #include "usbd_cdc_if.h"
 
-stmdev_ctx_t dev_ctx;
-ism330bx_fifo_status_t fifo_status;
-ism330bx_sflp_gbias_t gbias;
-
-
-
-float set_speed = 0;
+// Private Variables
+static stmdev_ctx_t dev_ctx;
+static ism330bx_fifo_status_t fifo_status;
+static ism330bx_sflp_gbias_t gbias;
+static ism330bx_fifo_sflp_raw_t fifo_sflp;
 
 static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
                               uint16_t len)
@@ -282,7 +280,7 @@ static ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *ta
     return ISM330BX_ERR_OK;
 }
 
-ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
+static ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
     switch(SFLP_config.xl_scale) {
         case ISM330BX_2g:
             target_vector->z = ism330bx_from_fs2_to_mg(data[0]);
@@ -366,31 +364,6 @@ static ISM330BX_ERRORS_e get_game_rotation(Quaternion *quaternion_target, uint16
     }
 
     quaternion_target->w = sqrtf(1.0f - sumsq); 
-    return ISM330BX_ERR_OK;
-}
-
-static ISM330BX_ERRORS_e get_gravity(gravity_vector_s *target_vector, uint16_t data[3]) {
-    switch(SFLP_config.xl_scale) {
-        case ISM330BX_2g:
-            target_vector->x = ism330bx_from_fs2_to_mg(data[0]);
-            target_vector->y = ism330bx_from_fs2_to_mg(data[1]);
-            target_vector->z = ism330bx_from_fs2_to_mg(data[2]);
-            break;
-        case ISM330BX_4g:
-            target_vector->x = ism330bx_from_fs4_to_mg(data[0]);
-            target_vector->y = ism330bx_from_fs4_to_mg(data[1]);
-            target_vector->z = ism330bx_from_fs4_to_mg(data[2]);
-            break;
-        case ISM330BX_8g:
-            target_vector->x = ism330bx_from_fs8_to_mg(data[0]);
-            target_vector->y = ism330bx_from_fs8_to_mg(data[1]);
-            target_vector->z = ism330bx_from_fs8_to_mg(data[2]);
-            break;
-        default:
-            return ISM330BX_ERR_ERROR;
-            break;
-    }
-
     return ISM330BX_ERR_OK;
 }
 
