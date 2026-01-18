@@ -385,37 +385,37 @@ static ISM330BX_ERRORS_e get_gravity(gravity_vector_s *target_vector, uint16_t d
     return ISM330BX_ERR_OK;
 }
 
-static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, uint16_t data[3]) {
+static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, raw_gyroscope_bias_s data) {
         switch(SFLP_config.gy_scale) {
         case ISM330BX_125dps:
-            target->x = ism330bx_from_fs125_to_mdps(data[0]);
-            target->y = ism330bx_from_fs125_to_mdps(data[1]);
-            target->z = ism330bx_from_fs125_to_mdps(data[2]);
+            target->x = ism330bx_from_fs125_to_mdps(data.x);
+            target->y = ism330bx_from_fs125_to_mdps(data.y);
+            target->z = ism330bx_from_fs125_to_mdps(data.z);
             break;
         case ISM330BX_250dps:
-            target->x = ism330bx_from_fs250_to_mdps(data[0]);
-            target->y = ism330bx_from_fs250_to_mdps(data[1]);
-            target->z = ism330bx_from_fs250_to_mdps(data[2]);
+            target->x = ism330bx_from_fs250_to_mdps(data.x);
+            target->y = ism330bx_from_fs250_to_mdps(data.y);
+            target->z = ism330bx_from_fs250_to_mdps(data.z);
             break;
         case ISM330BX_500dps:
-            target->x = ism330bx_from_fs500_to_mdps(data[0]);
-            target->y = ism330bx_from_fs500_to_mdps(data[1]);
-            target->z = ism330bx_from_fs500_to_mdps(data[2]);
+            target->x = ism330bx_from_fs500_to_mdps(data.x);
+            target->y = ism330bx_from_fs500_to_mdps(data.y);
+            target->z = ism330bx_from_fs500_to_mdps(data.z);
             break;
         case ISM330BX_1000dps:
-            target->x = ism330bx_from_fs1000_to_mdps(data[0]);
-            target->y = ism330bx_from_fs1000_to_mdps(data[1]);
-            target->z = ism330bx_from_fs1000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs1000_to_mdps(data.x);
+            target->y = ism330bx_from_fs1000_to_mdps(data.y);
+            target->z = ism330bx_from_fs1000_to_mdps(data.z);
             break;
         case ISM330BX_2000dps:
-            target->x = ism330bx_from_fs2000_to_mdps(data[0]);
-            target->y = ism330bx_from_fs2000_to_mdps(data[1]);
-            target->z = ism330bx_from_fs2000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs2000_to_mdps(data.x);
+            target->y = ism330bx_from_fs2000_to_mdps(data.y);
+            target->z = ism330bx_from_fs2000_to_mdps(data.z);
             break;
         case ISM330BX_4000dps:
-            target->x = ism330bx_from_fs4000_to_mdps(data[0]);
-            target->y = ism330bx_from_fs4000_to_mdps(data[1]);
-            target->z = ism330bx_from_fs4000_to_mdps(data[2]);
+            target->x = ism330bx_from_fs4000_to_mdps(data.x);
+            target->y = ism330bx_from_fs4000_to_mdps(data.y);
+            target->z = ism330bx_from_fs4000_to_mdps(data.z);
             break;
 
         default:
@@ -479,7 +479,24 @@ ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second) {
     *rad_per_second = deg_per_second * (M_PI / 180.0f);
 }
 
-ISM330BX_ERRORS_e calibrate_gyroscope(void) {
+ISM330BX_ERRORS_e calibrate_gyroscope(SFLP_CONFIG_s *config) {
+
+    //GBIAS regs are available when PAGE_SEL[3:0] = 0x0000
+    //FInd on page 124
+
+    ism330bx_write_reg(&dev_ctx, ISM330BX_PAGE_SEL, 0x00, 1);
+    
+    uint8_t gyroscope_bias[6] = {0};
+
+    ism330bx_read_reg(&dev_ctx, ISM330BX_SFLP_GAME_GBIASX_L, gyroscope_bias, 6);
+
+    raw_gyroscope_bias_s raw_bias;
+
+    raw_bias.x = (int16_t)((gyroscope_bias[1] << 8) | gyroscope_bias[0]);
+    raw_bias.y = (int16_t)((gyroscope_bias[3] << 8) | gyroscope_bias[2]);
+    raw_bias.z = (int16_t)((gyroscope_bias[5] << 8) | gyroscope_bias[4]);
+
+    get_gyroscope_bias(&config->gy_offset, raw_bias);
 
     return ISM330BX_ERR_OK;
 }
