@@ -10,38 +10,7 @@
 
 // Private Variables
 static stmdev_ctx_t dev_ctx;
-static ism330bx_fifo_status_t fifo_status;
-static ism330bx_sflp_gbias_t gbias;
 static ism330bx_fifo_sflp_raw_t fifo_sflp;
-
-static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
-                              uint16_t len)
-{
-  /* USER CODE BEGIN WRITE */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(handle, &reg, 1, 1000);
-    HAL_SPI_Transmit(handle, (uint8_t*) bufp, len, 1000);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
-    return 0;
-  /* USER CODE END WRITE */
-}
-
-static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
-                             uint16_t len)
-{
-  /* USER CODE BEGIN READ */
-    uint8_t read_reg = (reg | 0x80); //Set MSB read flag
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(handle, &read_reg, 1, 1000);
-    HAL_SPI_Receive(handle, bufp, len, 1000);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
-  return 0;
-  /* USER CODE END READ */
-}
-
-static void platform_delay(uint32_t ms) {
-  HAL_Delay(ms);
-}
 
 static SFLP_CONFIG_s SFLP_config = {
     .xl_scale = ISM330BX_2g,
@@ -56,6 +25,38 @@ static SFLP_CONFIG_s SFLP_config = {
     .gbias = SFLP_MODE_DISABLE,
     .offset_xl = ISM330BX_XL_OFS_0
 };
+
+// Write to ISM330BX
+static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
+                              uint16_t len)
+{
+  /* USER CODE BEGIN WRITE */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(handle, &reg, 1, 1000);
+    HAL_SPI_Transmit(handle, (uint8_t*) bufp, len, 1000);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+    return 0;
+  /* USER CODE END WRITE */
+}
+
+// Read from ISM330BX
+static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
+                             uint16_t len)
+{
+  /* USER CODE BEGIN READ */
+    uint8_t read_reg = (reg | 0x80); //Set MSB read flag
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(handle, &read_reg, 1, 1000);
+    HAL_SPI_Receive(handle, bufp, len, 1000);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+  return 0;
+  /* USER CODE END READ */
+}
+
+// Delay function
+static void platform_delay(uint32_t ms) {
+  HAL_Delay(ms);
+}
 
 ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle) {
     
@@ -155,42 +156,8 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
     }
 
     // Route FIFO watermark interrupt to INT1 pin
-    ism330bx_pin_int_route_t int1_route = {
-        .boot = 0,
-        .drdy_xl = 0,
-        .drdy_gy = 0,
-        .drdy_temp = 0,
-        .drdy_ah_qvar = 0,
-        .fifo_th = 1,
-        .fifo_ovr = 0,
-        .fifo_full = 0,
-        .fifo_bdr = 0,
-        .den_flag = 0,
-        .timestamp = 0,
-        .six_d = 0,
-        .double_tap = 0,
-        .free_fall = 0,
-        .wake_up = 0,
-        .single_tap = 0,
-        .sleep_change = 0,
-        .sleep_status = 0,
-        .step_detector = 0,
-        .tilt = 0,
-        .sig_mot = 0,
-        .fsm_lc = 0,
-        .fsm1 = 0,
-        .fsm2 = 0,
-        .fsm3 = 0,
-        .fsm4 = 0,
-        .fsm5 = 0,
-        .fsm6 = 0,
-        .fsm7 = 0,
-        .fsm8 = 0,
-        .mlc1 = 0,
-        .mlc2 = 0,
-        .mlc3 = 0,
-        .mlc4 = 0,
-    };
+    ism330bx_pin_int_route_t int1_route = {0};
+    int1_route.fifo_th = 1;
 
     err = ism330bx_pin_int1_route_set(&dev_ctx, int1_route);
     if(err != 0) {
@@ -247,10 +214,6 @@ static ISM330BX_ERRORS_e apply_gyroscope_bias(gyroscope_data_s *target) {
     target->roll -= SFLP_config.gy_offset.y;
     target->yaw -= SFLP_config.gy_offset.z;
 
-    return ISM330BX_ERR_OK;
-}
-
-ISM330BX_ERRORS_e get_fifo_buffer() {
     return ISM330BX_ERR_OK;
 }
 
@@ -466,9 +429,6 @@ static ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_sec
 }
 
 ISM330BX_ERRORS_e calibrate_gyroscope(SFLP_CONFIG_s *config) {
-
-    //GBIAS regs are available when PAGE_SEL[3:0] = 0x0000
-    //FInd on page 124
 
     ism330bx_write_reg(&dev_ctx, ISM330BX_PAGE_SEL, 0x00, 1);
     

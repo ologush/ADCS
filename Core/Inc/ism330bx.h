@@ -132,6 +132,4 @@ ISM330BX_ERRORS_e get_fifo_frame(sflp_data_frame_s *target_data_frame);
 ISM330BX_ERRORS_e calibrate_gyroscope(SFLP_CONFIG_s *config);
 ISM330BX_ERRORS_e calibrate_accelerometer(void);
 
-
-
 #endif
