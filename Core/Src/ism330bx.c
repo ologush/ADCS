@@ -8,44 +8,11 @@
 #include <stdint.h>
 #include "usbd_cdc_if.h"
 
-stmdev_ctx_t dev_ctx;
-ism330bx_fifo_status_t fifo_status;
-ism330bx_sflp_gbias_t gbias;
+// Private Variables
+static stmdev_ctx_t dev_ctx;
+static ism330bx_fifo_sflp_raw_t fifo_sflp;
 
-
-
-float set_speed = 0;
-
-static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
-                              uint16_t len)
-{
-  /* USER CODE BEGIN WRITE */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(handle, &reg, 1, 1000);
-    HAL_SPI_Transmit(handle, (uint8_t*) bufp, len, 1000);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
-    return 0;
-  /* USER CODE END WRITE */
-}
-
-static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
-                             uint16_t len)
-{
-  /* USER CODE BEGIN READ */
-    uint8_t read_reg = (reg | 0x80); //Set MSB read flag
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(handle, &read_reg, 1, 1000);
-    HAL_SPI_Receive(handle, bufp, len, 1000);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
-  return 0;
-  /* USER CODE END READ */
-}
-
-static void platform_delay(uint32_t ms) {
-  HAL_Delay(ms);
-}
-
-SFLP_CONFIG_s SFLP_config = {
+static SFLP_CONFIG_s SFLP_config = {
     .xl_scale = ISM330BX_2g,
     .gy_scale = ISM330BX_125dps,
     .xl_data_rate = XL_RATE,
@@ -59,9 +26,40 @@ SFLP_CONFIG_s SFLP_config = {
     .offset_xl = ISM330BX_XL_OFS_0
 };
 
+// Write to ISM330BX
+static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
+                              uint16_t len)
+{
+  /* USER CODE BEGIN WRITE */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(handle, &reg, 1, 1000);
+    HAL_SPI_Transmit(handle, (uint8_t*) bufp, len, 1000);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+    return 0;
+  /* USER CODE END WRITE */
+}
+
+// Read from ISM330BX
+static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
+                             uint16_t len)
+{
+  /* USER CODE BEGIN READ */
+    uint8_t read_reg = (reg | 0x80); //Set MSB read flag
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(handle, &read_reg, 1, 1000);
+    HAL_SPI_Receive(handle, bufp, len, 1000);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+  return 0;
+  /* USER CODE END READ */
+}
+
+// Delay function
+static void platform_delay(uint32_t ms) {
+  HAL_Delay(ms);
+}
+
 ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle) {
     
-    int32_t err;
     dev_ctx.write_reg = platform_write;
     dev_ctx.read_reg = platform_read;
     dev_ctx.mdelay = platform_delay;
@@ -74,7 +72,6 @@ ISM330BX_ERRORS_e SFLP_INIT(SPI_HandleTypeDef *handle) {
     ism330bx_device_id_get(&dev_ctx, &whoamI);
     if (whoamI != ISM330BX_ID) {
         /* Throw Error */
-        CDC_Transmit_FS("Error\r\n", sizeof("Error\r\n"));
         return ISM330BX_ERR_ERROR;
     }
 
@@ -159,42 +156,8 @@ ISM330BX_ERRORS_e sflp_init_interrupt(void) {
     }
 
     // Route FIFO watermark interrupt to INT1 pin
-    ism330bx_pin_int_route_t int1_route = {
-        boot: 0,
-        drdy_xl: 0,
-        drdy_gy: 0,
-        drdy_temp: 0,
-        drdy_ah_qvar: 0,
-        fifo_th: 1,
-        fifo_ovr: 0,
-        fifo_full: 0,
-        fifo_bdr: 0,
-        den_flag: 0,
-        timestamp: 0,
-        six_d: 0,
-        double_tap: 0,
-        free_fall: 0,
-        wake_up: 0,
-        single_tap: 0,
-        sleep_change: 0,
-        sleep_status: 0,
-        step_detector: 0,
-        tilt: 0,
-        sig_mot: 0,
-        fsm_lc: 0,
-        fsm1: 0,
-        fsm2: 0,
-        fsm3: 0,
-        fsm4: 0,
-        fsm5: 0,
-        fsm6: 0,
-        fsm7: 0,
-        fsm8: 0,
-        mlc1: 0,
-        mlc2: 0,
-        mlc3: 0,
-        mlc4: 0,
-    };
+    ism330bx_pin_int_route_t int1_route = {0};
+    int1_route.fifo_th = 1;
 
     err = ism330bx_pin_int1_route_set(&dev_ctx, int1_route);
     if(err != 0) {
@@ -254,11 +217,8 @@ static ISM330BX_ERRORS_e apply_gyroscope_bias(gyroscope_data_s *target) {
     return ISM330BX_ERR_OK;
 }
 
-ISM330BX_ERRORS_e get_fifo_buffer() {
-    return ISM330BX_ERR_OK;
-}
-
-ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
+// Converts raw accelerometer data from the registers (not FIFO buffer) to float in mg units
+static ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_vector, int16_t data[3]) {
     switch(SFLP_config.xl_scale) {
         case ISM330BX_2g:
             target_vector->x = ism330bx_from_fs2_to_mg(data[0]);
@@ -283,7 +243,7 @@ ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_ve
     return ISM330BX_ERR_OK;
 }
 
-ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
+static ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]) {
     switch(SFLP_config.xl_scale) {
         case ISM330BX_2g:
             target_vector->z = ism330bx_from_fs2_to_mg(data[0]);
@@ -367,31 +327,6 @@ static ISM330BX_ERRORS_e get_game_rotation(Quaternion *quaternion_target, uint16
     }
 
     quaternion_target->w = sqrtf(1.0f - sumsq); 
-    return ISM330BX_ERR_OK;
-}
-
-static ISM330BX_ERRORS_e get_gravity(gravity_vector_s *target_vector, uint16_t data[3]) {
-    switch(SFLP_config.xl_scale) {
-        case ISM330BX_2g:
-            target_vector->x = ism330bx_from_fs2_to_mg(data[0]);
-            target_vector->y = ism330bx_from_fs2_to_mg(data[1]);
-            target_vector->z = ism330bx_from_fs2_to_mg(data[2]);
-            break;
-        case ISM330BX_4g:
-            target_vector->x = ism330bx_from_fs4_to_mg(data[0]);
-            target_vector->y = ism330bx_from_fs4_to_mg(data[1]);
-            target_vector->z = ism330bx_from_fs4_to_mg(data[2]);
-            break;
-        case ISM330BX_8g:
-            target_vector->x = ism330bx_from_fs8_to_mg(data[0]);
-            target_vector->y = ism330bx_from_fs8_to_mg(data[1]);
-            target_vector->z = ism330bx_from_fs8_to_mg(data[2]);
-            break;
-        default:
-            return ISM330BX_ERR_ERROR;
-            break;
-    }
-
     return ISM330BX_ERR_OK;
 }
 
@@ -479,20 +414,21 @@ static uint32_t npy_halfbits_to_floatbits(uint16_t h) {
     }
 }
 
-ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw) {
+// Function to convert the quaternion to yaw angle in radians
+static ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw) {
     float s1 = 2.0f * (quat->w * quat->z + quat->x * quat->y);
     float s2 = 1.0f - 2.0f * (quat->y * quat->y + quat->z * quat->z);
     *yaw = atan2f(s1, s2);
+    return ISM330BX_ERR_OK;
 }
 
-ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second) {
+// Convert degrees per second to radians per second
+static ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second) {
     *rad_per_second = deg_per_second * (M_PI / 180.0f);
+    return ISM330BX_ERR_OK;
 }
 
 ISM330BX_ERRORS_e calibrate_gyroscope(SFLP_CONFIG_s *config) {
-
-    //GBIAS regs are available when PAGE_SEL[3:0] = 0x0000
-    //FInd on page 124
 
     ism330bx_write_reg(&dev_ctx, ISM330BX_PAGE_SEL, 0x00, 1);
     
@@ -511,6 +447,7 @@ ISM330BX_ERRORS_e calibrate_gyroscope(SFLP_CONFIG_s *config) {
     return ISM330BX_ERR_OK;
 }
 
+//This function calibrates the accelerometer by calculating offsets based on stationary readings
 ISM330BX_ERRORS_e calibrate_accelerometer(void) {
 
     int8_t x_offset;
@@ -547,20 +484,20 @@ ISM330BX_ERRORS_e calibrate_accelerometer(void) {
             x_offset = (int8_t)(-offset.x / 15.625f); // 2^-6 g/LSB
             y_offset = (int8_t)(-offset.y / 15.625f);
             z_offset = (int8_t)((1000.0f - offset.z) / 15.625f); //Assuming static 1g on Z axis
-            ctrl9.usr_off_w = 0b1;
+            ctrl9.usr_off_w = 0x01;
             break;
         default:
             return ISM330BX_ERR_ERROR;
             break;
     }
 
-    ctrl9.usr_off_on_out = 0b1;
+    ctrl9.usr_off_on_out = 0x01;
     
     ism330bx_write_reg(&dev_ctx, ISM330BX_CTRL9, (uint8_t*)&ctrl9, 1);
     
-    ism330bx_write_reg(&dev_ctx, ISM330BX_X_OFS_USR, &x_offset, 1);
-    ism330bx_write_reg(&dev_ctx, ISM330BX_Y_OFS_USR, &y_offset, 1);
-    ism330bx_write_reg(&dev_ctx, ISM330BX_Z_OFS_USR, &z_offset, 1);
+    ism330bx_write_reg(&dev_ctx, ISM330BX_X_OFS_USR, (uint8_t*)&x_offset, 1);
+    ism330bx_write_reg(&dev_ctx, ISM330BX_Y_OFS_USR, (uint8_t*)&y_offset, 1);
+    ism330bx_write_reg(&dev_ctx, ISM330BX_Z_OFS_USR, (uint8_t*)&z_offset, 1);
 
     return ISM330BX_ERR_OK;
 }

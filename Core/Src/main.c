@@ -55,6 +55,8 @@ DMA_HandleTypeDef hdma_usart3_tx;
 /* USER CODE BEGIN PV */
 sflp_data_frame_s current_sflp_data;
 sflp_data_frame_s new_sflp_data;
+// Need to replace this with proper attitude control structure
+float set_speed = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -115,7 +117,7 @@ int main(void)
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
   //motor_ctrl_init(&hi2c2);
   sflp_init_interrupt();
-  //HAL_TIM_Base_Start_IT(&htim6);
+ 
 
   /* USER CODE END 2 */
 
