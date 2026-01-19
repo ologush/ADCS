@@ -21,6 +21,13 @@ eeprom_register_s eeprom_default_config[] = {
     {MCF8315_EEPROM_REF_PROFILES5_REG,     0x00000000},
     {MCF8315_EEPROM_REF_PROFILES6_REG,     0x00000000}
 };
+// Private function prototypes
+static MOTOR_ERRORS_e motor_write_data_word(motor_data_word_s *data_word);
+static MOTOR_ERRORS_e motor_read_data_word(motor_data_word_s *data_word, uint8_t *receive_buffer);
+static MOTOR_ERRORS_e calculate_crc(motor_data_word_s *data_word);
+static MOTOR_ERRORS_e initial_eeprom_config(void);
+static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data);
+
 /* Private function definitions */
 
 static MOTOR_ERRORS_e motor_write_data_word(motor_data_word_s *data_word)
@@ -199,6 +206,7 @@ MOTOR_ERRORS_e motor_startup_sequence(void) {
     uint32_t motor_speed = 100.0f;
     motor_set_speed(motor_speed);
 
+    return MOTOR_CTRL_ERR_OK;
 }
 
 MOTOR_ERRORS_e motor_set_speed(float speed_rpm) {
@@ -261,6 +269,8 @@ MOTOR_ERRORS_e motor_get_speed(float *speed_rpm) {
     motor_read_data_word(&speed_access, (uint8_t*)&register_value);
 
     *speed_rpm = (register_value/pow(2, 27)) * MAX_SPEED * 60;
+
+    return MOTOR_CTRL_ERR_OK;
 }
 
 MOTOR_ERRORS_e extract_motor_params(motor_parameters_s *extracted_params) {
@@ -344,6 +354,8 @@ MOTOR_ERRORS_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fault
     motor_read_data_word(&read_fault, (uint8_t*)&fault_data);
     *controller_fault = fault_data;
 
+    return MOTOR_CTRL_ERR_OK;
+
 }
 
 MOTOR_ERRORS_e clear_fault() {
@@ -371,4 +383,6 @@ MOTOR_ERRORS_e clear_fault() {
     clear_fault.data[3] = (reg_value & 0xFF000000) >> 24;
 
     motor_write_data_word(&clear_fault);
+
+    return MOTOR_CTRL_ERR_OK;
 }

@@ -80,10 +80,7 @@ void Error_Handler(void);
 #define LED_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-static void print_imu_data(sflp_data_frame_s *data);
-static void send_IMU_data(void);
-static uint8_t calculate_checksum(uint8_t *data, uint8_t length);
-static void receive_USB_data(uint8_t *Buf, uint32_t *Len);
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

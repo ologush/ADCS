@@ -88,11 +88,7 @@ static I2C_HandleTypeDef *hi2c_motor_ctrl;
 extern float set_speed;
 
 /* Private function prototypes*/
-static MOTOR_ERRORS_e motor_write_data_word(motor_data_word_s *data_word);
-static MOTOR_ERRORS_e motor_read_data_word(motor_data_word_s *data_word, uint8_t *receive_buffer);
-static MOTOR_ERRORS_e calculate_crc(motor_data_word_s *data_word);
-static MOTOR_ERRORS_e initial_eeprom_config(void);
-static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data);
+
 
 
 /* Public function prototypes */

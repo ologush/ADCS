@@ -12,6 +12,27 @@
 static stmdev_ctx_t dev_ctx;
 static ism330bx_fifo_sflp_raw_t fifo_sflp;
 
+// Private function prototypes
+static ISM330BX_ERRORS_e get_game_rotation(Quaternion *quaternion_target, uint16_t data[3]);
+static ISM330BX_ERRORS_e get_gyroscope_bias(gyroscope_bias_s *target, raw_gyroscope_bias_s data);
+
+static uint32_t npy_halfbits_to_floatbits(uint16_t h);
+static float_t npy_half_to_float(uint16_t h);
+
+static ISM330BX_ERRORS_e reg_accelerometer_raw_to_float(accelerometer_data_s *target_vector, int16_t data[3]);
+static ISM330BX_ERRORS_e fifo_accelerometer_raw_to_float(accelerometer_data_s *target_vector, uint16_t data[3]);
+static ISM330BX_ERRORS_e gyroscope_raw_to_float(gyroscope_data_s *target_vector, uint16_t data[3]);
+static ISM330BX_ERRORS_e apply_gyroscope_bias(gyroscope_data_s *target);
+static ISM330BX_ERRORS_e get_yaw_angle(Quaternion *quat, float *yaw);
+static ISM330BX_ERRORS_e deg_s_to_rad_s(float deg_per_second, float *rad_per_second);
+
+static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
+                              uint16_t len);
+static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
+                             uint16_t len);
+
+static void platform_delay(uint32_t ms);
+
 static SFLP_CONFIG_s SFLP_config = {
     .xl_scale = ISM330BX_2g,
     .gy_scale = ISM330BX_125dps,
