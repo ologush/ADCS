@@ -55,6 +55,11 @@ DMA_HandleTypeDef hdma_usart3_tx;
 /* USER CODE BEGIN PV */
 sflp_data_frame_s current_sflp_data;
 sflp_data_frame_s new_sflp_data;
+
+extern volatile uint8_t data_received_flag;
+extern volatile uint32_t received_data_length;
+extern volatile uint8_t received_data_buffer[USB_PACKET_SIZE];
+
 // Need to replace this with proper attitude control structure
 float set_speed = 0;
 /* USER CODE END PV */
@@ -128,6 +133,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if (data_received_flag) {
+        // Process received data
+
+        data_received_flag = 0;
+    }
   }
   /* USER CODE END 3 */
 }
@@ -457,7 +467,28 @@ static void send_IMU_data(void) {
   IMU_packet.packet.checksum = calculate_checksum(IMU_packet.packet.payload, IMU_PACKET_SIZE);
 
   CDC_Transmit_FS(IMU_packet.buffer, sizeof(IMU_packet));
+}
 
+static void receive_USB_data(uint8_t *Buf, uint32_t *Len) {
+  USB_Packet_u received_packet;
+  memcpy(received_packet.buffer, Buf, *Len);
+
+  if (received_packet.packet.start_byte != 0xAA) {
+      // Invalid start byte
+      return;
+  } else {
+      // Process packet based on type
+      switch (received_packet.packet.type) {
+          case 0x01: // IMU data request
+              send_IMU_data();
+              break;
+          case 0x02: // Set new targets
+              
+              break;
+          default:
+              break;
+      }
+  }
 }
 
 static uint8_t calculate_checksum(uint8_t *data, uint8_t length) {
