@@ -36,7 +36,19 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
+typedef struct {
+  uint8_t start_byte;
+  uint8_t type;
+  uint8_t length;
+  uint8_t payload[256];
+  uint8_t checksum;
+  uint8_t end_byte;
+} USB_Packet_s;
 
+typedef union {
+  USB_Packet_s packet;
+  uint8_t buffer[sizeof(USB_Packet_s)];
+} USB_Packet_u;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -46,7 +58,7 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+#define IMU_PACKET_SIZE  sizeof(sflp_data_frame_s)
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -68,6 +80,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 static void print_imu_data(sflp_data_frame_s *data);
+static void send_IMU_data(void);
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

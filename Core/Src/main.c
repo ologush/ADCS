@@ -416,7 +416,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 static void print_imu_data(sflp_data_frame_s *data) {
 
   char print_buffer[355];
-  char section_break[] = "-------------------\n\r\0";
+  char section_break[] = "-------------------\n\r";
 
   uint16_t print_buffer_index = snprintf(print_buffer, sizeof(print_buffer), "Game rotation vector:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\rScalar: %.4f\n\r%s\n\r",
                                 data->game_rotation.x,
@@ -440,6 +440,32 @@ static void print_imu_data(sflp_data_frame_s *data) {
   print_buffer_index += snprintf(print_buffer + print_buffer_index, sizeof(print_buffer) - print_buffer_index, "Yaw is: %.4f radians \n\r%s\n\r", data->yaw, section_break);
 
   CDC_Transmit_FS(print_buffer, sizeof(print_buffer));
+}
+
+static void send_IMU_data(void) {
+  USB_Packet_u IMU_packet = {
+    .packet.start_byte = 0xAA,
+    .packet.type = 0x01, // IMU data type
+    .packet.length = IMU_PACKET_SIZE,
+    .packet.payload = {0},
+    .packet.checksum = 0,
+    .packet.end_byte = 0x55
+  };
+
+  memcpy(IMU_packet.packet.payload, &current_sflp_data, IMU_PACKET_SIZE);
+
+  IMU_packet.packet.checksum = calculate_checksum(IMU_packet.packet.payload, IMU_PACKET_SIZE);
+
+  CDC_Transmit_FS(IMU_packet.buffer, sizeof(IMU_packet));
+
+}
+
+static uint8_t calculate_checksum(uint8_t *data, uint8_t length) {
+  uint8_t checksum = 0;
+  for(uint8_t i = 0; i < length; i++) {
+    checksum += data[i];
+  }
+  return checksum;
 }
 /* USER CODE END 4 */
 
