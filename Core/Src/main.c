@@ -478,14 +478,28 @@ static void receive_USB_data(uint8_t *Buf, uint32_t *Len) {
   if (received_packet.packet.start_byte != 0xAA) {
       // Invalid start byte
       return;
+  } else if (received_packet.packet.end_byte != 0x55) {
+      // Invalid end byte
+      return;
+  } else if (received_packet.packet.checksum != calculate_checksum(received_packet.packet.payload, received_packet.packet.length)) {
+      // Invalid checksum
+      return;
   } else {
       // Process packet based on type
       switch (received_packet.packet.type) {
           case 0x01: // IMU data request
               send_IMU_data();
               break;
-          case 0x02: // Set new targets
-              
+          case 0x02: // Set new target
+              {
+                union {
+                  uint8_t payload_buffer[received_packet.packet.length];
+                  algo_target_s target_data;
+                } target_union;
+
+                memcpy(target_union.payload_buffer, received_packet.packet.payload, received_packet.packet.length);
+                update_target(target_union.target_data);
+              }
               break;
           default:
               break;
