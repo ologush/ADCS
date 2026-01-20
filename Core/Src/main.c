@@ -61,7 +61,7 @@ extern volatile uint32_t received_data_length;
 extern volatile uint8_t received_data_buffer[USB_PACKET_SIZE];
 
 // Need to replace this with proper attitude control structure
-float set_speed = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -408,6 +408,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
       print_imu_data(&current_sflp_data);
 
       switch(get_target_type()) {
+        float set_speed;
         case ALGO_TARGET_ATTITUDE:
           PID_iteration(current_sflp_data.yaw, &set_speed);
           motor_set_speed(set_speed);
@@ -472,6 +473,7 @@ static void send_IMU_data(void) {
 }
 
 static void receive_USB_data(uint8_t *Buf, uint32_t *Len) {
+
   USB_Packet_u received_packet;
   memcpy(received_packet.buffer, Buf, *Len);
 
