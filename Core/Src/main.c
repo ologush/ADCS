@@ -407,22 +407,20 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
       print_imu_data(&current_sflp_data);
 
-      if(algo_target_type == ALGO_TARGET_ATTITUDE) {
-
-        float speed_change;
-
-        iteration(&attitude_control, &speed_change);
-        set_speed += speed_change;
-        motor_set_speed(set_speed);
-      
-      } else if(algo_target_type == ALGO_TARGET_SPIN_RATE) {
-
-        float speed_change;
-
-        iteration(&spin_control, &speed_change);
-        set_speed += speed_change;
-        motor_set_speed(set_speed);
-
+      switch(get_target_type()) {
+        case ALGO_TARGET_ATTITUDE:
+          PID_iteration(current_sflp_data.yaw, &set_speed);
+          motor_set_speed(set_speed);
+          break;
+        case ALGO_TARGET_SPIN_RATE:
+          PID_iteration(current_sflp_data.yaw_rate, &set_speed);
+          motor_set_speed(set_speed);
+          break;
+        case ALGO_OFF:
+          // Do nothing
+          break;
+        default:
+          break;
       }
   }
 }
