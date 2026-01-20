@@ -20,7 +20,7 @@ const PID_parameters_s no_control = {
     .Kd=0.0f
 };
 
-PID_frame_s control_frame = {
+static PID_frame_s control_frame = {
     .error = 0,
     .prev_error = 0,
     .pid_params = no_control,
