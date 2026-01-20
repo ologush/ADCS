@@ -5,7 +5,7 @@
 #include "motor_reg_defs.h"
 
 /* Private Variables */
-eeprom_register_s eeprom_default_config[] = {
+static eeprom_register_s eeprom_default_config[] = {
     {MCF8315_EEPROM_ISD_CONFIG_REG,        0x7C700484},
     {MCF8315_EEPROM_REV_DRIVE_CONFIG_REG,  0x00000000},
     {MCF8315_EEPROM_MOTOR_STARTUP_1_REG,   0x40000096},
@@ -21,6 +21,9 @@ eeprom_register_s eeprom_default_config[] = {
     {MCF8315_EEPROM_REF_PROFILES5_REG,     0x00000000},
     {MCF8315_EEPROM_REF_PROFILES6_REG,     0x00000000}
 };
+
+static I2C_HandleTypeDef *hi2c_motor_ctrl;
+
 // Private function prototypes
 static MOTOR_ERRORS_e motor_write_data_word(motor_data_word_s *data_word);
 static MOTOR_ERRORS_e motor_read_data_word(motor_data_word_s *data_word, uint8_t *receive_buffer);
@@ -29,7 +32,6 @@ static MOTOR_ERRORS_e initial_eeprom_config(void);
 static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data);
 
 /* Private function definitions */
-
 static MOTOR_ERRORS_e motor_write_data_word(motor_data_word_s *data_word)
 {
     uint8_t data_length = 4;

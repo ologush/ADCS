@@ -81,16 +81,6 @@ typedef struct {
     uint32_t reg_value;
 } eeprom_register_s;
 
-/* Private Variables */
-static I2C_HandleTypeDef *hi2c_motor_ctrl;
-
-/* Global Variables */
-extern float set_speed;
-
-/* Private function prototypes*/
-
-
-
 /* Public function prototypes */
 MOTOR_ERRORS_e motor_ctrl_init(I2C_HandleTypeDef *hi2c);
 MOTOR_ERRORS_e motor_parameter_extraction(motor_parameters_s *motor_params);
