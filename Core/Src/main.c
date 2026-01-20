@@ -55,8 +55,13 @@ DMA_HandleTypeDef hdma_usart3_tx;
 /* USER CODE BEGIN PV */
 sflp_data_frame_s current_sflp_data;
 sflp_data_frame_s new_sflp_data;
+
+extern volatile uint8_t data_received_flag;
+extern volatile uint32_t received_data_length;
+extern volatile uint8_t received_data_buffer[USB_PACKET_SIZE];
+
 // Need to replace this with proper attitude control structure
-float set_speed = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,6 +71,10 @@ static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_Init(void);
+static void print_imu_data(sflp_data_frame_s *data);
+static void send_IMU_data(void);
+static uint8_t calculate_checksum(uint8_t *data, uint8_t length);
+static void receive_USB_data(uint8_t *Buf, uint32_t *Len);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -128,6 +137,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if (data_received_flag) {
+        // Process received data
+
+        data_received_flag = 0;
+    }
   }
   /* USER CODE END 3 */
 }
@@ -393,22 +407,21 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
       print_imu_data(&current_sflp_data);
 
-      if(algo_target_type == ALGO_TARGET_ATTITUDE) {
-
-        float speed_change;
-
-        iteration(&attitude_control, &speed_change);
-        set_speed += speed_change;
-        motor_set_speed(set_speed);
-      
-      } else if(algo_target_type == ALGO_TARGET_SPIN_RATE) {
-
-        float speed_change;
-
-        iteration(&spin_control, &speed_change);
-        set_speed += speed_change;
-        motor_set_speed(set_speed);
-
+      switch(get_target_type()) {
+        float set_speed;
+        case ALGO_TARGET_ATTITUDE:
+          PID_iteration(current_sflp_data.yaw, &set_speed);
+          motor_set_speed(set_speed);
+          break;
+        case ALGO_TARGET_SPIN_RATE:
+          PID_iteration(current_sflp_data.yaw_rate, &set_speed);
+          motor_set_speed(set_speed);
+          break;
+        case ALGO_OFF:
+          // Do nothing
+          break;
+        default:
+          break;
       }
   }
 }
@@ -416,7 +429,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 static void print_imu_data(sflp_data_frame_s *data) {
 
   char print_buffer[355];
-  char section_break[] = "-------------------\n\r\0";
+  char section_break[] = "-------------------\n\r";
 
   uint16_t print_buffer_index = snprintf(print_buffer, sizeof(print_buffer), "Game rotation vector:\n\rX: %.4f\n\rY: %.4f\n\rZ: %.4f\n\rScalar: %.4f\n\r%s\n\r",
                                 data->game_rotation.x,
@@ -440,6 +453,68 @@ static void print_imu_data(sflp_data_frame_s *data) {
   print_buffer_index += snprintf(print_buffer + print_buffer_index, sizeof(print_buffer) - print_buffer_index, "Yaw is: %.4f radians \n\r%s\n\r", data->yaw, section_break);
 
   CDC_Transmit_FS(print_buffer, sizeof(print_buffer));
+}
+
+static void send_IMU_data(void) {
+  USB_Packet_u IMU_packet = {
+    .packet.start_byte = 0xAA,
+    .packet.type = 0x01, // IMU data type
+    .packet.length = IMU_PACKET_SIZE,
+    .packet.payload = {0},
+    .packet.checksum = 0,
+    .packet.end_byte = 0x55
+  };
+
+  memcpy(IMU_packet.packet.payload, &current_sflp_data, IMU_PACKET_SIZE);
+
+  IMU_packet.packet.checksum = calculate_checksum(IMU_packet.packet.payload, IMU_PACKET_SIZE);
+
+  CDC_Transmit_FS(IMU_packet.buffer, sizeof(IMU_packet));
+}
+
+static void receive_USB_data(uint8_t *Buf, uint32_t *Len) {
+
+  USB_Packet_u received_packet;
+  memcpy(received_packet.buffer, Buf, *Len);
+
+  if (received_packet.packet.start_byte != 0xAA) {
+      // Invalid start byte
+      return;
+  } else if (received_packet.packet.end_byte != 0x55) {
+      // Invalid end byte
+      return;
+  } else if (received_packet.packet.checksum != calculate_checksum(received_packet.packet.payload, received_packet.packet.length)) {
+      // Invalid checksum
+      return;
+  } else {
+      // Process packet based on type
+      switch (received_packet.packet.type) {
+          case 0x01: // IMU data request
+              send_IMU_data();
+              break;
+          case 0x02: // Set new target
+              {
+                union {
+                  uint8_t payload_buffer[received_packet.packet.length];
+                  algo_target_s target_data;
+                } target_union;
+
+                memcpy(target_union.payload_buffer, received_packet.packet.payload, received_packet.packet.length);
+                update_target(target_union.target_data);
+              }
+              break;
+          default:
+              break;
+      }
+  }
+}
+
+static uint8_t calculate_checksum(uint8_t *data, uint8_t length) {
+  uint8_t checksum = 0;
+  for(uint8_t i = 0; i < length; i++) {
+    checksum += data[i];
+  }
+  return checksum;
 }
 /* USER CODE END 4 */
 
