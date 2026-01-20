@@ -399,7 +399,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-  if(GPIO_Pin == IMU_Interrupt_Pin) {
+  if (GPIO_Pin == IMU_Interrupt_Pin) {
       // Call IMU data handler
       get_fifo_frame(&new_sflp_data);
       // May need to disable interrupt, but will kep this as the highest priority for now
@@ -423,6 +423,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         default:
           break;
       }
+  } else if (GPIO_Pin == Motor_Fault_Pin) {
+      // Handle motor fault
+      handle_fault();
   }
 }
 

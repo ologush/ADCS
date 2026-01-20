@@ -198,6 +198,9 @@ static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data) {
 MOTOR_ERRORS_e motor_ctrl_init(I2C_HandleTypeDef *hi2c)
 {
     hi2c_motor_ctrl = hi2c;
+
+    handle_fault();
+
     uint32_t config_data[14];
     read_eeprom_config(config_data);
     return MOTOR_CTRL_ERR_OK;
@@ -336,6 +339,17 @@ MOTOR_ERRORS_e run_mpet(void) {
     return MOTOR_CTRL_ERR_OK;
 }
 
+MOTOR_ERRORS_e handle_fault(void) {
+
+    uint32_t gate_driver_fault;
+    uint32_t controller_fault;
+    get_fault(&gate_driver_fault, &controller_fault);
+
+    // Implement fault handling logic
+
+    clear_fault();
+}
+
 MOTOR_ERRORS_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fault) {
     motor_data_word_s read_fault;
     read_fault.target_id = MCF8315D_I2C_ADDRESS;
@@ -360,7 +374,7 @@ MOTOR_ERRORS_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fault
 
 }
 
-MOTOR_ERRORS_e clear_fault() {
+MOTOR_ERRORS_e clear_fault(void) {
     motor_data_word_s clear_fault;
     clear_fault.target_id = MCF8315D_I2C_ADDRESS;
     clear_fault.read_write_bit = OP_RW_WRITE;
