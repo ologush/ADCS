@@ -28,10 +28,7 @@
 #define MEM_PAGE_MASK     0x00F000
 #define MEM_ADDR_MASK     0x000FFF
 
-#define MAX_RPM          7200.0f
-#define MAX_SPEED           100000 //Placeholder
-
-
+#define MAX_SPEED          7200.0f // Placeholder value
 
 
 /* Typedefs */

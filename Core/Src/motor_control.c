@@ -151,6 +151,24 @@ static MOTOR_ERRORS_e calculate_crc(motor_data_word_s *data_word) {
 static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data) {
     motor_data_word_s retreival_data_word;
 
+    motor_data_word_s stop_motor_word = {
+        .target_id = MCF8315D_I2C_ADDRESS,
+        .read_write_bit = OP_RW_WRITE,
+        .control_word = {
+            .op_rw = OP_RW_WRITE,
+            .crc_en = CRC_EN_DISABLE,
+            .d_len = D_LEN_32_BIT,
+            .mem_sec = 0,
+            .mem_page = 0,
+            .mem_addr = MCF8315_ALGO_DEBUG1_REG
+        },
+        .data = {0x08, 0x00, 0x00, 0x00} //Skeptical that this is the correct value, as it places 0x800 in the middle of the speed ctrl register
+    };
+
+    motor_write_data_word(&stop_motor_word);
+
+    clear_fault();
+
     //Write 0x40000000 to register 0x0000EA to read the EEPROM data into the shadow/RAM registers 0x000080 to 0x0000AE
 
     retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
@@ -164,11 +182,35 @@ static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data) {
     retreival_data_word.data[3] = 0x00;
     retreival_data_word.control_word.mem_sec = 0;
     retreival_data_word.control_word.mem_page = 0;
-    retreival_data_word.control_word.mem_addr = 0xEA;
+    retreival_data_word.control_word.mem_addr = 0xMCF8315_ALGO_CTRL1_REG;
 
     motor_write_data_word(&retreival_data_word);
 
-    HAL_Delay(100); //Wait for EEPROM read to complete
+    HAL_Delay(200); //Wait for EEPROM read to complete
+
+    retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
+    retreival_data_word.read_write_bit = OP_RW_WRITE;
+    retreival_data_word.control_word.op_rw = OP_RW_READ;
+    retreival_data_word.control_word.crc_en = CRC_EN_DISABLE;
+    retreival_data_word.control_word.d_len = D_LEN_32_BIT;
+    retreival_data_word.data[0] = 0x00;
+    retreival_data_word.data[1] = 0x00;
+    retreival_data_word.data[2] = 0x00;
+    retreival_data_word.data[3] = 0x00;
+    retreival_data_word.control_word.mem_sec = 0;
+    retreival_data_word.control_word.mem_page = 0;
+    retreival_data_word.control_word.mem_addr = 0xMCF8315_ALGO_CTRL1_REG;
+
+    union {
+        uint8_t buffer[4];
+        uint32_t data_word;
+    } retreival_union;
+
+    motor_read_data_word(&retreival_data_word, retreival_union.buffer);
+
+    if (motor_read_data_word(retreival_data_word, retreival_union.data_word) != MOTOR_CTRL_ERR_OK) {
+        return MOTOR_CTRL_ERR_ERROR;
+    }
 
     for(uint8_t i = MCF8315_EEPROM_ISD_CONFIG_REG; i<= MCF8315_EEPROM_GD_CONFIG2_REG; i+=2) {
         retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
@@ -216,14 +258,14 @@ MOTOR_ERRORS_e motor_startup_sequence(void) {
 
 MOTOR_ERRORS_e motor_set_speed(float speed_rpm) {
 
-    if(speed_rpm > MAX_RPM) {
+    if(speed_rpm > MAX_SPEED) {
         return MOTOR_CTRL_ERR_ERROR;
     }
 
     uint32_t speed_mask = 0x8000FFFF; // Mask to clear speed bits
 
     //Convert speed from RPM to register value
-    uint16_t speed = (uint16_t)roundf((speed_rpm / MAX_RPM) * 65535.0f);
+    uint16_t speed = (uint16_t)roundf((speed_rpm / MAX_SPEED) * 65535.0f);
 
     motor_data_word_s retreival_data_word;
     uint32_t current_register_value;
