@@ -69,8 +69,11 @@ typedef struct {
     uint8_t target_id       :   7;
     uint8_t read_write_bit  :   1;
     motor_control_word_s control_word;
-    uint8_t data[8];
-    uint8_t crc             :   8;
+    union {
+        uint16_t data_16;
+        uint32_t data_32;
+        uint64_t data_64;
+    } data_u;
 } motor_data_word_s;
 
 typedef struct {
