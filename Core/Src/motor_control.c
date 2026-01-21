@@ -25,17 +25,29 @@ static eeprom_register_s eeprom_default_config[] = {
 static I2C_HandleTypeDef *hi2c_motor_ctrl;
 
 // Private function prototypes
-static MOTOR_ERRORS_e motor_write_data_word(motor_data_word_s *data_word);
-static MOTOR_ERRORS_e motor_read_data_word(motor_data_word_s *data_word, uint8_t *receive_buffer);
 static MOTOR_ERRORS_e calculate_crc(motor_data_word_s *data_word);
 static MOTOR_ERRORS_e initial_eeprom_config(void);
 static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data);
 
 static MOTOR_ERRORS_e MCF8315_write_register(uint16_t reg_address, uint64_t reg_value, uint8_t length);
+static MOTOR_ERRORS_e MCF8315_read_register(uint16_t reg_address, uint64_t *reg_value, uint8_t length);
 
 static MOTOR_ERRORS_e MCF8315_write_register(uint16_t reg_address, uint64_t reg_value, uint8_t length) {
 
-    uint8_t tx_buffer_len = 4 + (length / 8);
+    uint8_t tx_buffer_len = 4;
+    switch(length) {
+        case D_LEN_16_BIT:
+            tx_buffer_len += 2;
+            break;
+        case D_LEN_32_BIT:
+            tx_buffer_len += 4;
+            break;
+        case D_LEN_64_BIT:
+            tx_buffer_len += 8;
+            break;
+        default:
+            return MOTOR_CTRL_ERR_ERROR;
+    }
     
     union {
         uint8_t buffer[tx_buffer_len];
@@ -71,57 +83,61 @@ static MOTOR_ERRORS_e MCF8315_write_register(uint16_t reg_address, uint64_t reg_
         return MOTOR_CTRL_ERR_ERROR;
     }
     return MOTOR_CTRL_ERR_OK;
-
 }
 
-static MOTOR_ERRORS_e motor_read_data_word(motor_data_word_s *data_word_tx, uint8_t *receive_buffer) {
+static MOTOR_ERRORS_e MCF8315_read_register(uint16_t reg_address, uint64_t *reg_value, uint8_t length) {
 
-    uint8_t data_length = 0;
-    
-    switch(data_word_tx->control_word.d_len) {
-        case 0:
-            data_length += 2;
+    motor_data_word_s read_word;
+    read_word.target_id = MCF8315D_I2C_ADDRESS;
+    read_word.read_write_bit = OP_RW_WRITE;
+    read_word.control_word.op_rw = OP_RW_READ;
+    read_word.control_word.crc_en = CRC_EN_DISABLE;
+    read_word.control_word.d_len = length;
+    read_word.control_word.mem_sec = 0;
+    read_word.control_word.mem_page = 0;
+    read_word.control_word.mem_addr = reg_address;
+
+    uint8_t real_length = 0;
+
+    switch(length) {
+        case D_LEN_16_BIT:
+            real_length = 2;
             break;
-        case 1:
-            data_length += 4;
+        case D_LEN_32_BIT:
+            real_length = 4;
             break;
-        case 2:
-            data_length += 8;
+        case D_LEN_64_BIT:
+            real_length = 8;
             break;
         default:
             return MOTOR_CTRL_ERR_ERROR;
-            break;
     }
 
-    switch(data_word_tx->control_word.crc_en) {
-        case 0:
-            break;
-        case 1:
-            data_length += 1;
-            break;
-        default:
-            return MOTOR_CTRL_ERR_ERROR;
-            break;
-    }
+    union {
+        uint8_t buffer[4];
+        motor_data_word_s data_word;
+    } tx_union;
 
-    uint8_t tx_buffer[4];
-    uint8_t rx_buffer[data_length - 1];
+    tx_union.data_word.target_id = MCF8315D_I2C_ADDRESS;
+    tx_union.data_word.read_write_bit = OP_RW_WRITE;
+    tx_union.data_word.control_word.op_rw = OP_RW_READ;
+    tx_union.data_word.control_word.crc_en = CRC_EN_DISABLE;
+    tx_union.data_word.control_word.d_len = length;
+    tx_union.data_word.control_word.mem_sec = 0;
+    tx_union.data_word.control_word.mem_page = 0;
+    tx_union.data_word.control_word.mem_addr = reg_address;
 
-    tx_buffer[0] = (data_word_tx->target_id << 1) | (data_word_tx->read_write_bit & 0x01);
-    tx_buffer[1] = (data_word_tx->control_word.op_rw & 0x01) << 7  |
-                   (data_word_tx->control_word.crc_en & 0x01) << 6 |
-                   (data_word_tx->control_word.d_len & 0x03) << 4 |
-                   (data_word_tx->control_word.mem_sec & 0x0F);
-    tx_buffer[2] = (data_word_tx->control_word.mem_page & 0x0F) << 4 | 
-                    ((data_word_tx->control_word.mem_addr >> 8) & 0x0F);
-    tx_buffer[3] = data_word_tx->control_word.mem_addr & 0xFF;
+    union {
+        uint8_t buffer[real_length];
+        uint64_t data_value;
+    } rx_union;
 
-    HAL_I2C_Master_Transmit(hi2c_motor_ctrl, tx_buffer[0], tx_buffer + 1, 3, HAL_MAX_DELAY);
-    HAL_I2C_Master_Receive(hi2c_motor_ctrl, tx_buffer[0] | 0x01, rx_buffer, data_length - 1, HAL_MAX_DELAY);
+    HAL_I2C_Master_Transmit(hi2c_motor_ctrl, tx_union.buffer[0], tx_union.buffer + 1, 3, HAL_MAX_DELAY);
+    HAL_I2C_Master_Receive(hi2c_motor_ctrl, tx_union.buffer[0], rx_union.buffer, real_length, HAL_MAX_DELAY);
 
-    for(uint8_t i = 0; i < (data_length); i++) {
-            receive_buffer[i] = rx_buffer[i];
-    }
+    *reg_value = rx_union.data_value;
+
+    return MOTOR_CTRL_ERR_OK;
 }
 
 static MOTOR_ERRORS_e calculate_crc(motor_data_word_s *data_word) {
@@ -144,52 +160,36 @@ static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data) {
 
     HAL_Delay(200); //Wait for EEPROM read to complete
 
-    motor_data_word_s retreival_data_word;
-    retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
-    retreival_data_word.read_write_bit = OP_RW_WRITE;
-    retreival_data_word.control_word.op_rw = OP_RW_READ;
-    retreival_data_word.control_word.crc_en = CRC_EN_DISABLE;
-    retreival_data_word.control_word.d_len = D_LEN_32_BIT;
-    retreival_data_word.data_u.data_32 = 0x00000000;
-    retreival_data_word.control_word.mem_sec = 0;
-    retreival_data_word.control_word.mem_page = 0;
-    retreival_data_word.control_word.mem_addr = MCF8315_ALGO_CTRL1_REG;
-
+    // This checks to ensure that the EEPROM was read successfully
     union {
-        uint8_t buffer[4];
-        uint32_t data_word;
-    } retreival_union;
+        uint64_t data_64;
+        uint32_t data_32;
+    } read_check_union;
 
-    motor_read_data_word(&retreival_data_word, retreival_union.buffer);
+    MCF8315_read_register(MCF8315_ALGO_CTRL1_REG, &read_check_union.data_64, D_LEN_32_BIT);
 
-    if (retreival_union.data_word != MOTOR_CTRL_ERR_OK) {
+    if (read_check_union.data_32 != 0x00000000) {
         return MOTOR_CTRL_ERR_ERROR;
     }
 
     for(uint8_t i = MCF8315_EEPROM_ISD_CONFIG_REG; i<= MCF8315_EEPROM_GD_CONFIG2_REG; i+=2) {
-        retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
-        retreival_data_word.read_write_bit = OP_RW_WRITE;
-        retreival_data_word.control_word.op_rw = OP_RW_READ;
-        retreival_data_word.control_word.crc_en = CRC_EN_DISABLE;
-        retreival_data_word.control_word.d_len = D_LEN_32_BIT;
-        retreival_data_word.control_word.mem_sec = 0;
-        retreival_data_word.control_word.mem_page = 0;
-        retreival_data_word.control_word.mem_addr = i;
 
-        uint8_t receive_buffer[4];
-        motor_read_data_word(&retreival_data_word, receive_buffer);
+        union {
+            uint64_t data_64;
+            uint32_t data_32;
+        } eeprom_value_union;
+
+        MCF8315_read_register(i, &eeprom_value_union.data_64, D_LEN_32_BIT);
 
         uint8_t index = (i - MCF8315_EEPROM_ISD_CONFIG_REG) / 2;
-        uint32_t value = (uint32_t)((receive_buffer[0]) << 24 | (receive_buffer[1] << 16) | (receive_buffer[2] << 8) | (receive_buffer[3]));
 
-        config_data[(i - MCF8315_EEPROM_ISD_CONFIG_REG) / 2] = (uint32_t)((receive_buffer[0]) << 24 | (receive_buffer[1] << 16) | (receive_buffer[2] << 8) | (receive_buffer[3]));
+        config_data[(i - MCF8315_EEPROM_ISD_CONFIG_REG) / 2] = eeprom_value_union.data_32;
     }
 
     return MOTOR_CTRL_ERR_OK;
 }
 
 /* Global function definitions */
-
 
 MOTOR_ERRORS_e motor_ctrl_init(I2C_HandleTypeDef *hi2c)
 {
@@ -233,10 +233,15 @@ MOTOR_ERRORS_e motor_set_speed(float speed_rpm) {
     retreival_data_word.control_word.mem_page = 0;
     retreival_data_word.control_word.mem_addr = MCF8315_ALGO_DEBUG1_REG;
 
-    motor_read_data_word(&retreival_data_word, (uint8_t*)&current_register_value);
+    union {
+        uint64_t data_64;
+        uint32_t data_32;
+    } current_speed_union;
 
-    current_register_value &= speed_mask;
-    current_register_value |= ((uint32_t)speed << 16);
+    MCF8315_read_register(MCF8315_ALGO_DEBUG1_REG, &current_speed_union.data_64, D_LEN_32_BIT);
+
+    current_speed_union.data_32 &= speed_mask;
+    current_speed_union.data_32 |= ((uint32_t)speed << 16);
 
     uint32_t set_speed = ((uint32_t)speed << 16);
 
@@ -246,56 +251,42 @@ MOTOR_ERRORS_e motor_set_speed(float speed_rpm) {
 }
 
 MOTOR_ERRORS_e motor_get_speed(float *speed_rpm) {
-    motor_data_word_s speed_access;
 
-    speed_access.target_id = MCF8315D_I2C_ADDRESS;
-    speed_access.read_write_bit = OP_RW_WRITE;
-    speed_access.control_word.op_rw = OP_RW_READ;
-    speed_access.control_word.crc_en = CRC_EN_DISABLE;
-    speed_access.control_word.d_len = D_LEN_32_BIT;
-    speed_access.control_word.mem_sec = 0;
-    speed_access.control_word.mem_page = 0;
-    speed_access.control_word.mem_addr = MCF8315_SPEED_FDBK_REG;
+    union {
+        uint64_t data_64;
+        uint32_t data_32;
+    } speed_union;
 
-    int32_t register_value;
+    MCF8315_read_register(MCF8315_SPEED_FDBK_REG, &speed_union.data_64, D_LEN_32_BIT);
 
-    motor_read_data_word(&speed_access, (uint8_t*)&register_value);
-
-    *speed_rpm = (register_value/pow(2, 27)) * MAX_SPEED * 60;
+    *speed_rpm = (float)(((float)speed_union.data_32/pow(2, 27)) * MAX_SPEED * 60);
 
     return MOTOR_CTRL_ERR_OK;
 }
 
 MOTOR_ERRORS_e extract_motor_params(motor_parameters_s *extracted_params) {
 
-    motor_data_word_s extract_word;
-    extract_word.target_id = MCF8315D_I2C_ADDRESS;
-    extract_word.read_write_bit = OP_RW_WRITE;
-    extract_word.control_word.op_rw = OP_RW_READ;
-    extract_word.control_word.crc_en = CRC_EN_DISABLE;
-    extract_word.control_word.d_len = D_LEN_32_BIT;
-    extract_word.control_word.mem_sec = 0;
-    extract_word.control_word.mem_page = 0;
-    extract_word.control_word.mem_addr = MCF8315_MTR_PARAMS_REG;
+    union {
+        uint64_t data_64;
+        uint32_t data_32;
+        uint8_t data_buffer[4];
+    } reg_value_union;
 
-    uint8_t motor_params_data[4];
+    MCF8315_read_register(MCF8315_MTR_PARAMS_REG, &reg_value_union.data_64, D_LEN_32_BIT);
 
-    motor_read_data_word(&extract_word, motor_params_data);
-
-    extracted_params->motor_inductance_hex = motor_params_data[1];
-    extracted_params->motor_bemf_constant_hex = motor_params_data[2];
-    extracted_params->motor_resistance_hex = motor_params_data[3];
+    extracted_params->motor_inductance_hex = reg_value_union.data_buffer[1];
+    extracted_params->motor_bemf_constant_hex = reg_value_union.data_buffer[2];
+    extracted_params->motor_resistance_hex = reg_value_union.data_buffer[3];
 
     uint32_t current_loop_data;
     uint32_t speed_loop_data;
 
-    extract_word.control_word.mem_addr = MCF8315_CURRENT_PI_REG;
+    MCF8315_read_register(MCF8315_CURRENT_PI_REG, &reg_value_union.data_64, D_LEN_32_BIT);
+    current_loop_data = reg_value_union.data_32;
 
-    motor_read_data_word(&extract_word, (uint8_t*)&current_loop_data);
+    MCF8315_read_register(MCF8315_SPEED_PI_REG, &reg_value_union.data_64, D_LEN_32_BIT);
+    speed_loop_data = reg_value_union.data_32;
 
-    extract_word.control_word.mem_addr = MCF8315_SPEED_PI_REG;
-
-    motor_read_data_word(&extract_word, (uint8_t*)&speed_loop_data);
 
     extracted_params->current_loop_ki = 1000*((0xFF0000 & current_loop_data) >> 16)/(pow(10,((0x3000000 & current_loop_data) >> 18)));
     extracted_params->current_loop_kp = (current_loop_data & 0xFF)/(pow(10,((current_loop_data & 0x300) >> 8)));
@@ -335,37 +326,32 @@ MOTOR_ERRORS_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fault
     read_fault.control_word.mem_page = 0;
     read_fault.control_word.mem_addr = MCF8315_GATE_DRIVER_FAULT_STATUS_REG;
 
-    uint32_t fault_data;
+    union {
+        uint64_t data_64;
+        uint32_t data_32;
+    } fault_union;
 
-    motor_read_data_word(&read_fault, (uint8_t*)&fault_data);
-    *gate_driver_fault = fault_data;
+    MCF8315_read_register(MCF8315_GATE_DRIVER_FAULT_STATUS_REG, &fault_union.data_64, D_LEN_32_BIT);
+    *gate_driver_fault = fault_union.data_32;
 
-    read_fault.control_word.mem_addr = MCF8315_CONTROLLER_FAULT_STATUS_REG;
-    motor_read_data_word(&read_fault, (uint8_t*)&fault_data);
-    *controller_fault = fault_data;
+    MCF8315_read_register(MCF8315_CONTROLLER_FAULT_STATUS_REG, &fault_union.data_64, D_LEN_32_BIT);
+    *controller_fault = fault_union.data_32;
 
     return MOTOR_CTRL_ERR_OK;
 
 }
 
 MOTOR_ERRORS_e clear_fault(void) {
-    motor_data_word_s clear_fault;
-    clear_fault.target_id = MCF8315D_I2C_ADDRESS;
-    clear_fault.read_write_bit = OP_RW_WRITE;
-    clear_fault.control_word.op_rw = OP_RW_READ;
-    clear_fault.control_word.crc_en = CRC_EN_DISABLE;
-    clear_fault.control_word.d_len = D_LEN_32_BIT;
-    clear_fault.control_word.mem_sec = 0;
-    clear_fault.control_word.mem_page = 0;
-    clear_fault.control_word.mem_addr = MCF8315_ALGO_CTRL1_REG;
 
-    uint32_t reg_value;
+    union {
+        uint64_t data_64;
+        uint32_t data_32;
+    } fault_data_union;
 
-    motor_read_data_word(&clear_fault, (uint8_t*)&reg_value);
+    MCF8315_read_register(MCF8315_ALGO_CTRL1_REG, &fault_data_union.data_64, D_LEN_32_BIT);
+    fault_data_union.data_32 = fault_data_union.data_32 & 0xDFFFFFFF;
 
-    reg_value = reg_value & 0xDFFFFFFF;
-
-    MCF8315_write_register(MCF8315_ALGO_CTRL1_REG, reg_value, D_LEN_32_BIT);
+    MCF8315_write_register(MCF8315_ALGO_CTRL1_REG, fault_data_union.data_32, D_LEN_32_BIT);
 
     return MOTOR_CTRL_ERR_OK;
 }
