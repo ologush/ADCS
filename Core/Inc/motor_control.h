@@ -94,4 +94,6 @@ MOTOR_ERRORS_e clear_fault(void);
 MOTOR_ERRORS_e extract_motor_params(motor_parameters_s *extracted_params);
 MOTOR_ERRORS_e run_mpet(void);
 
+MOTOR_ERRORS_e find_target_id(void);
+
 #endif

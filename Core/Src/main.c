@@ -71,12 +71,9 @@ static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_Init(void);
-static void print_imu_data(sflp_data_frame_s *data);
-static void send_IMU_data(void);
-static uint8_t calculate_checksum(uint8_t *data, uint8_t length);
-static void receive_USB_data(uint8_t *Buf, uint32_t *Len);
 /* USER CODE BEGIN PFP */
-
+static void print_imu_data(sflp_data_frame_s *data);
+static uint8_t calculate_checksum(uint8_t *data, uint8_t length);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -127,7 +124,11 @@ int main(void)
   motor_ctrl_init(&hi2c2);
   sflp_init_interrupt();
  
+  GPIO_PinState fault_status = HAL_GPIO_ReadPin(GPIOB, Motor_Fault_Pin);
 
+  if (fault_status == GPIO_PIN_RESET) {
+    fault_status = GPIO_PIN_SET;
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */

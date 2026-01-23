@@ -120,8 +120,11 @@ static MOTOR_ERRORS_e MCF8315_read_register(uint16_t reg_address, uint64_t *reg_
         uint8_t buffer[real_length];
         uint64_t data_value;
     } rx_union;
-
-    HAL_I2C_Master_Transmit(hi2c_motor_ctrl, tx_union.buffer[0], tx_union.buffer + 1, 3, HAL_MAX_DELAY);
+    HAL_StatusTypeDef e;
+    e = HAL_I2C_Master_Transmit(hi2c_motor_ctrl, tx_union.buffer[0], tx_union.buffer + 1, 3, HAL_MAX_DELAY);
+    if (e == HAL_ERROR) {
+        return MOTOR_CTRL_ERR_ERROR;
+    }
     HAL_I2C_Master_Receive(hi2c_motor_ctrl, tx_union.buffer[0], rx_union.buffer, real_length, HAL_MAX_DELAY);
 
     *reg_value = rx_union.data_value;
@@ -183,6 +186,12 @@ static MOTOR_ERRORS_e read_eeprom_config(uint32_t *config_data) {
 MOTOR_ERRORS_e motor_ctrl_init(I2C_HandleTypeDef *hi2c)
 {
     hi2c_motor_ctrl = hi2c;
+
+    uint8_t target_id = 0;
+    target_id = find_target_id();
+    if (target_id == 0xFF) {
+        return MOTOR_CTRL_ERR_ERROR;
+    }
 
     handle_fault();
 
@@ -324,4 +333,19 @@ MOTOR_ERRORS_e clear_fault(void) {
     MCF8315_write_register(MCF8315_ALGO_CTRL1_REG, fault_data_union.data_32, D_LEN_32_BIT);
 
     return MOTOR_CTRL_ERR_OK;
+}
+
+uint8_t find_target_id() {
+
+    for (uint8_t i = 1; i < 128; i++) {
+        
+        uint8_t ret = HAL_I2C_IsDeviceReady(hi2c_motor_ctrl, (uint16_t)(i << 1), 3, 5);
+
+        if (ret == HAL_OK) {
+            return i;
+        }
+    }
+
+    return 0xFF;
+
 }
