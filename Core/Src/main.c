@@ -102,7 +102,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  HAL_Delay(2000);
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -124,7 +124,7 @@ int main(void)
   SFLP_INIT(&hspi1);
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-  //motor_ctrl_init(&hi2c2);
+  motor_ctrl_init(&hi2c2);
   sflp_init_interrupt();
  
 

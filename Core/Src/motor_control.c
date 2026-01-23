@@ -56,12 +56,11 @@ static MOTOR_ERRORS_e MCF8315_write_register(uint16_t reg_address, uint64_t reg_
 
     tx_union.data_word.target_id = MCF8315D_I2C_ADDRESS;
     tx_union.data_word.read_write_bit = OP_RW_WRITE;
-    tx_union.data_word.control_word.op_rw = OP_RW_WRITE;
-    tx_union.data_word.control_word.crc_en = CRC_EN_DISABLE;
-    tx_union.data_word.control_word.d_len = length;
-    tx_union.data_word.control_word.mem_sec = 0;
-    tx_union.data_word.control_word.mem_page = 0;
-    tx_union.data_word.control_word.mem_addr = reg_address;
+    tx_union.data_word.op_rw = OP_RW_WRITE;
+    tx_union.data_word.crc_en = CRC_EN_DISABLE;
+    tx_union.data_word.d_len = length;
+    tx_union.data_word.mem_sec = 0;
+    tx_union.data_word.mem_addr = reg_address << 4; // Fix works for now with how the bitfields are set. May have to fix in the future
 
     switch (length) {
         case D_LEN_16_BIT:
@@ -87,16 +86,6 @@ static MOTOR_ERRORS_e MCF8315_write_register(uint16_t reg_address, uint64_t reg_
 
 static MOTOR_ERRORS_e MCF8315_read_register(uint16_t reg_address, uint64_t *reg_value, uint8_t length) {
 
-    motor_data_word_s read_word;
-    read_word.target_id = MCF8315D_I2C_ADDRESS;
-    read_word.read_write_bit = OP_RW_WRITE;
-    read_word.control_word.op_rw = OP_RW_READ;
-    read_word.control_word.crc_en = CRC_EN_DISABLE;
-    read_word.control_word.d_len = length;
-    read_word.control_word.mem_sec = 0;
-    read_word.control_word.mem_page = 0;
-    read_word.control_word.mem_addr = reg_address;
-
     uint8_t real_length = 0;
 
     switch(length) {
@@ -114,18 +103,18 @@ static MOTOR_ERRORS_e MCF8315_read_register(uint16_t reg_address, uint64_t *reg_
     }
 
     union {
-        uint8_t buffer[4];
+        uint8_t buffer[8];
         motor_data_word_s data_word;
-    } tx_union;
+    } tx_union = {.buffer = 0};
 
     tx_union.data_word.target_id = MCF8315D_I2C_ADDRESS;
     tx_union.data_word.read_write_bit = OP_RW_WRITE;
-    tx_union.data_word.control_word.op_rw = OP_RW_READ;
-    tx_union.data_word.control_word.crc_en = CRC_EN_DISABLE;
-    tx_union.data_word.control_word.d_len = length;
-    tx_union.data_word.control_word.mem_sec = 0;
-    tx_union.data_word.control_word.mem_page = 0;
-    tx_union.data_word.control_word.mem_addr = reg_address;
+    tx_union.data_word.op_rw = OP_RW_READ;
+    tx_union.data_word.crc_en = CRC_EN_DISABLE;
+    tx_union.data_word.d_len = length;
+    tx_union.data_word.mem_sec = 0;
+    tx_union.data_word.test = 0;
+    tx_union.data_word.mem_addr = reg_address << 4; // Fix works for now with how the bitfields are set. May have to fix in the future
 
     union {
         uint8_t buffer[real_length];
@@ -221,18 +210,8 @@ MOTOR_ERRORS_e motor_set_speed(float speed_rpm) {
     //Convert speed from RPM to register value
     uint16_t speed = (uint16_t)roundf((speed_rpm / MAX_SPEED) * 65535.0f);
 
-    motor_data_word_s retreival_data_word;
     uint32_t current_register_value;
     
-    retreival_data_word.target_id = MCF8315D_I2C_ADDRESS;
-    retreival_data_word.read_write_bit = OP_RW_WRITE;
-    retreival_data_word.control_word.op_rw = OP_RW_READ;
-    retreival_data_word.control_word.crc_en = CRC_EN_DISABLE;
-    retreival_data_word.control_word.d_len = D_LEN_32_BIT;
-    retreival_data_word.control_word.mem_sec = 0;
-    retreival_data_word.control_word.mem_page = 0;
-    retreival_data_word.control_word.mem_addr = MCF8315_ALGO_DEBUG1_REG;
-
     union {
         uint64_t data_64;
         uint32_t data_32;
@@ -306,8 +285,8 @@ MOTOR_ERRORS_e run_mpet(void) {
 
 MOTOR_ERRORS_e handle_fault(void) {
 
-    uint32_t gate_driver_fault;
-    uint32_t controller_fault;
+    uint32_t gate_driver_fault = 0;
+    uint32_t controller_fault = 0;
     get_fault(&gate_driver_fault, &controller_fault);
 
     // Implement fault handling logic
@@ -316,20 +295,11 @@ MOTOR_ERRORS_e handle_fault(void) {
 }
 
 MOTOR_ERRORS_e get_fault(uint32_t *gate_driver_fault, uint32_t *controller_fault) {
-    motor_data_word_s read_fault;
-    read_fault.target_id = MCF8315D_I2C_ADDRESS;
-    read_fault.read_write_bit = OP_RW_WRITE;
-    read_fault.control_word.op_rw = OP_RW_READ;
-    read_fault.control_word.crc_en = CRC_EN_DISABLE;
-    read_fault.control_word.d_len = D_LEN_32_BIT;
-    read_fault.control_word.mem_sec = 0;
-    read_fault.control_word.mem_page = 0;
-    read_fault.control_word.mem_addr = MCF8315_GATE_DRIVER_FAULT_STATUS_REG;
 
     union {
         uint64_t data_64;
         uint32_t data_32;
-    } fault_union;
+    } fault_union = {.data_64 = 0};
 
     MCF8315_read_register(MCF8315_GATE_DRIVER_FAULT_STATUS_REG, &fault_union.data_64, D_LEN_32_BIT);
     *gate_driver_fault = fault_union.data_32;
