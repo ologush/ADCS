@@ -1,6 +1,5 @@
 #include "ism330bx.h"
 #include "ism330bx_reg.h"
-#include "motor_control.h"
 #include "stm32f3xx_hal.h"
 #include "stm32f3xx_hal_gpio.h"
 #include "stm32f3xx_hal_i2c.h"

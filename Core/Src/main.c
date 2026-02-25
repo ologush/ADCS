@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "motor_control.h"
+#include "MCF8315D.h"
 #include "usbd_cdc_if.h"
 #include "ism330bx.h"
 #include "control_algo.h"
@@ -121,7 +121,7 @@ int main(void)
   SFLP_INIT(&hspi1);
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-  motor_ctrl_init(&hi2c2);
+  MCF8315_init(&hi2c2);
   sflp_init_interrupt();
  
   GPIO_PinState fault_status = HAL_GPIO_ReadPin(GPIOB, Motor_Fault_Pin);
@@ -412,11 +412,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         float set_speed;
         case ALGO_TARGET_ATTITUDE:
           PID_iteration(current_sflp_data.yaw, &set_speed);
-          motor_set_speed(set_speed);
+          MCF8315_set_speed(set_speed);
           break;
         case ALGO_TARGET_SPIN_RATE:
           PID_iteration(current_sflp_data.yaw_rate, &set_speed);
-          motor_set_speed(set_speed);
+          MCF8315_set_speed(set_speed);
           break;
         case ALGO_OFF:
           // Do nothing
@@ -426,7 +426,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
       }
   } else if (GPIO_Pin == Motor_Fault_Pin) {
       // Handle motor fault
-      handle_fault();
+      MCF8315_handle_fault();
   }
 }
 
