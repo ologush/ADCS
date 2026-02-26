@@ -120,7 +120,7 @@ int main(void)
 
   SFLP_INIT(&hspi1);
 
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+  // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
   MCF8315_init(&hi2c2);
   sflp_init_interrupt();
  
@@ -412,11 +412,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         float set_speed;
         case ALGO_TARGET_ATTITUDE:
           PID_iteration(current_sflp_data.yaw, &set_speed);
-          MCF8315_set_speed(set_speed);
+          MCF8315_ramp_speed((int32_t)set_speed);
           break;
         case ALGO_TARGET_SPIN_RATE:
           PID_iteration(current_sflp_data.yaw_rate, &set_speed);
-          MCF8315_set_speed(set_speed);
+          MCF8315_ramp_speed((int32_t)set_speed);
           break;
         case ALGO_OFF:
           // Do nothing
