@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "motor_control.h"
+#include "MCF8315D.h"
 #include "usbd_cdc_if.h"
 #include "ism330bx.h"
 #include "control_algo.h"
@@ -71,12 +71,9 @@ static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_Init(void);
-static void print_imu_data(sflp_data_frame_s *data);
-static void send_IMU_data(void);
-static uint8_t calculate_checksum(uint8_t *data, uint8_t length);
-static void receive_USB_data(uint8_t *Buf, uint32_t *Len);
 /* USER CODE BEGIN PFP */
-
+static void print_imu_data(sflp_data_frame_s *data);
+static uint8_t calculate_checksum(uint8_t *data, uint8_t length);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -102,7 +99,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  HAL_Delay(2000);
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -123,11 +120,15 @@ int main(void)
 
   SFLP_INIT(&hspi1);
 
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-  //motor_ctrl_init(&hi2c2);
+  // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+  MCF8315_init(&hi2c2);
   sflp_init_interrupt();
  
+  GPIO_PinState fault_status = HAL_GPIO_ReadPin(GPIOB, Motor_Fault_Pin);
 
+  if (fault_status == GPIO_PIN_RESET) {
+    fault_status = GPIO_PIN_SET;
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -399,7 +400,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-  if(GPIO_Pin == IMU_Interrupt_Pin) {
+  if (GPIO_Pin == IMU_Interrupt_Pin) {
       // Call IMU data handler
       get_fifo_frame(&new_sflp_data);
       // May need to disable interrupt, but will kep this as the highest priority for now
@@ -411,11 +412,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         float set_speed;
         case ALGO_TARGET_ATTITUDE:
           PID_iteration(current_sflp_data.yaw, &set_speed);
-          motor_set_speed(set_speed);
+          MCF8315_ramp_speed((int32_t)set_speed);
           break;
         case ALGO_TARGET_SPIN_RATE:
           PID_iteration(current_sflp_data.yaw_rate, &set_speed);
-          motor_set_speed(set_speed);
+          MCF8315_ramp_speed((int32_t)set_speed);
           break;
         case ALGO_OFF:
           // Do nothing
@@ -423,6 +424,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         default:
           break;
       }
+  } else if (GPIO_Pin == Motor_Fault_Pin) {
+      // Handle motor fault
+      MCF8315_handle_fault();
   }
 }
 

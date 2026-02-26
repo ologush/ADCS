@@ -4,3 +4,6 @@
 [submodule "Libraries/ISM330BX"]
 	path = Libraries/ISM330BX
 	url = https://github.com/STMicroelectronics/ism330bx-pid
+[submodule "Libraries/MCF8315D"]
+	path = Libraries/MCF8315D
+	url = git@github.com:ologush/MCF8315D.git
