@@ -127,9 +127,9 @@ int main(void)
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
-  MCF8315_init(&hi2c2);
+  //MCF8315_init(&hi2c2);
   sflp_init_interrupt();
  
   GPIO_PinState fault_status = HAL_GPIO_ReadPin(GPIOB, Motor_Fault_Pin);
@@ -467,8 +467,13 @@ void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
                   
                   // For now, can look to add more things such as temperature in the future
                   uint8_t sensor_data_payload[TELEMETRY_DATA_PAYLOAD_SIZE];
+
+                  float temperature;
+                  get_temperature(&temperature);
+
                   floatToBytes(current_sflp_data.yaw, &sensor_data_payload[0]);
                   floatToBytes(current_sflp_data.yaw_rate, &sensor_data_payload[4]);
+                  floatToBytes(temperature, &sensor_data_payload[8]);
 
                   HAL_USART_Transmit(&husart3, sensor_data_payload, TELEMETRY_DATA_PAYLOAD_SIZE, 1000);
 
@@ -482,11 +487,15 @@ void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
       } else {
 
           switch (received_cmd) {
+
+              uint8_t response = CMD_RESP_ACK;
+
               case CMD_SET_ADCS_MODE:
+                  
                   
                   algo_target_type_e new_target_type = (algo_target_type_e)usart_rx_payload_buf[0];
                   update_target_type(new_target_type);
-
+                  HAL_USART_Transmit(&husart3, &response, 1, 1000);
                   break;
               case CMD_SET_ADCS_TARGET:
                   
@@ -494,7 +503,7 @@ void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
 
                   bytesToFloat(usart_rx_payload_buf, &new_target_value);
                   update_target_value(new_target_value);
-
+                  HAL_USART_Transmit(&husart3, &response, 1, 1000);
                   break;
               default:
                   // Should not be here, but just in case

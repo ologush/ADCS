@@ -521,3 +521,10 @@ ISM330BX_ERRORS_e calibrate_accelerometer(void) {
 
     return ISM330BX_ERR_OK;
 }
+
+ISM330BX_ERRORS_e get_temperature(float *temperature) {
+    int16_t temp_raw;
+    ism330bx_temperature_raw_get(&dev_ctx, &temp_raw);
+    *temperature = ism330bx_from_lsb_to_celsius(temp_raw);
+    return ISM330BX_ERR_OK;
+}
