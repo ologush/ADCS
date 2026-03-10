@@ -26,6 +26,8 @@
 #include "usbd_cdc_if.h"
 #include "ism330bx.h"
 #include "control_algo.h"
+#include "commands.h"
+#include "helpers.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,7 +42,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define USART_RX_BUFFER_SIZE 64
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -59,6 +61,9 @@ sflp_data_frame_s new_sflp_data;
 extern volatile uint8_t data_received_flag;
 extern volatile uint32_t received_data_length;
 extern volatile uint8_t received_data_buffer[USB_PACKET_SIZE];
+
+uint8_t usart_cmd;
+uint8_t usart_rx_payload_buf[USART_RX_BUFFER_SIZE];
 
 // Need to replace this with proper attitude control structure
 
@@ -132,6 +137,9 @@ int main(void)
   if (fault_status == GPIO_PIN_RESET) {
     fault_status = GPIO_PIN_SET;
   }
+
+  // Arm USART for commands
+  HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -433,6 +441,66 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   }
 }
 
+void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
+  if (huart->Instance == USART3) {
+      // Handle received data
+      static CMD_e received_cmd = CMD_NONE;
+      static uint8_t awaiting_payload = 0;
+      
+      if (!awaiting_payload) {
+          received_cmd = (CMD_e)usart_cmd;
+
+          switch (received_cmd) {
+              case CMD_SET_ADCS_MODE:
+
+                HAL_USART_Receive_IT(&husart3, usart_rx_payload_buf, SET_ADCS_MODE_PAYLOAD_SIZE);
+                awaiting_payload = 1;
+
+                break;
+              case CMD_SET_ADCS_TARGET:
+
+                  HAL_USART_Receive_IT(&husart3, usart_rx_payload_buf, SET_ADCS_TARGET_PAYLOAD_SIZE);
+                  awaiting_payload = 1;
+
+                  break;
+              case CMD_GET_SAT_SENSOR_DATA:
+                  
+                  HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
+                  awaiting_payload = 0;
+                  break;
+              default:
+                  
+                  break;
+          }
+      } else {
+
+          switch (received_cmd) {
+              case CMD_SET_ADCS_MODE:
+                  
+                  algo_target_type_e new_target_type = (algo_target_type_e)usart_rx_payload_buf[0];
+                  update_target_type(new_target_type);
+
+                  break;
+              case CMD_SET_ADCS_TARGET:
+                  
+                  float new_target_value;
+
+                  bytesToFloat(usart_rx_payload_buf, &new_target_value);
+                  update_target_value(new_target_value);
+
+                  break;
+              default:
+                  // Should not be here, but just in case
+                  break;
+          }
+          
+          awaiting_payload = 0;
+          HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
+      }
+      HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
+  }
+}
+
 static void print_imu_data(sflp_data_frame_s *data) {
 
   char print_buffer[355];
@@ -477,43 +545,6 @@ static void send_IMU_data(void) {
   IMU_packet.packet.checksum = calculate_checksum(IMU_packet.packet.payload, IMU_PACKET_SIZE);
 
   CDC_Transmit_FS(IMU_packet.buffer, sizeof(IMU_packet));
-}
-
-static void receive_USB_data(uint8_t *Buf, uint32_t *Len) {
-
-  USB_Packet_u received_packet;
-  memcpy(received_packet.buffer, Buf, *Len);
-
-  if (received_packet.packet.start_byte != 0xAA) {
-      // Invalid start byte
-      return;
-  } else if (received_packet.packet.end_byte != 0x55) {
-      // Invalid end byte
-      return;
-  } else if (received_packet.packet.checksum != calculate_checksum(received_packet.packet.payload, received_packet.packet.length)) {
-      // Invalid checksum
-      return;
-  } else {
-      // Process packet based on type
-      switch (received_packet.packet.type) {
-          case 0x01: // IMU data request
-              send_IMU_data();
-              break;
-          case 0x02: // Set new target
-              {
-                union {
-                  uint8_t payload_buffer[received_packet.packet.length];
-                  algo_target_s target_data;
-                } target_union;
-
-                memcpy(target_union.payload_buffer, received_packet.packet.payload, received_packet.packet.length);
-                update_target(target_union.target_data);
-              }
-              break;
-          default:
-              break;
-      }
-  }
 }
 
 static uint8_t calculate_checksum(uint8_t *data, uint8_t length) {

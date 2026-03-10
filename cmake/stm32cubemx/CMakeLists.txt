@@ -65,6 +65,7 @@ target_sources(stm32cubemx INTERFACE
     ../../Libraries/ISM330BX/ism330bx_reg.c
     ../../Libraries/MCF8315D/src/MCF8315D.c
     ../../Core/Src/control_algo.c
+    ../../Core/Src/helpers.c
 )
 
 target_link_directories(stm32cubemx INTERFACE

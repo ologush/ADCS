@@ -37,7 +37,8 @@ typedef struct {
 #define RW_MOI 1.0f //placeholder
 #define SAT_MOI 1.0f //placeholder
 
-control_algo_error_e update_target(algo_target_s new_target);
+control_algo_error_e update_target_type(algo_target_type_e new_target_type);
+control_algo_error_e update_target_value(float new_target_value);
 control_algo_error_e PID_iteration(float measured_value, float *command);
 control_algo_error_e wrap_pi(float input_angle, float *target_angle);
 
