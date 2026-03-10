@@ -465,6 +465,13 @@ void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
                   break;
               case CMD_GET_SAT_SENSOR_DATA:
                   
+                  // For now, can look to add more things such as temperature in the future
+                  uint8_t sensor_data_payload[SENSOR_DATA_PAYLOAD_SIZE];
+                  floatToBytes(current_sflp_data.yaw, &sensor_data_payload[0]);
+                  floatToBytes(current_sflp_data.yaw_rate, &sensor_data_payload[4]);
+
+                  HAL_USART_Transmit(&husart3, sensor_data_payload, SENSOR_DATA_PAYLOAD_SIZE, 1000);
+
                   HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
                   awaiting_payload = 0;
                   break;

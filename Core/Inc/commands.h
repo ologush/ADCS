@@ -3,6 +3,7 @@
 
 #define SET_ADCS_MODE_PAYLOAD_SIZE 1
 #define SET_ADCS_TARGET_PAYLOAD_SIZE 4
+#define SENSOR_DATA_PAYLOAD_SIZE 8
 
 typedef enum {
     CMD_NONE = 0x00,
