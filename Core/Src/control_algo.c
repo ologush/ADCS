@@ -30,23 +30,36 @@ static PID_frame_s control_frame = {
     }
 };
 
-control_algo_error_e update_target(algo_target_s new_target) {
-    switch(new_target.target_type) {
+control_algo_error_e update_target_type(algo_target_type_e new_target_type) {
+    switch(new_target_type) {
         case ALGO_TARGET_ATTITUDE:
             control_frame.pid_params = attitude_control;
-            break;
+            control_frame.target.target_type = ALGO_TARGET_ATTITUDE;
+             break;
         case ALGO_TARGET_SPIN_RATE:
             control_frame.pid_params = spin_control;
+            control_frame.target.target_type = ALGO_TARGET_SPIN_RATE;   
             break;
         case ALGO_OFF:
             control_frame.pid_params = no_control;
+            control_frame.target.target_type = ALGO_OFF;
             break;
         default:
             return CONTROL_ALGO_ERR_ERR;
             break;
     }
 
-    control_frame.target = new_target;
+    control_frame.target.target_type = new_target_type;
+    control_frame.target.target_value = 0;
+    control_frame.error = 0;
+    control_frame.prev_error = 0;
+
+    return CONTROL_ALGO_ERR_OK;
+}
+
+control_algo_error_e update_target_value(float new_target_value) {
+
+    control_frame.target.target_value = new_target_value;
     control_frame.error = 0;
     control_frame.prev_error = 0;
 
