@@ -50,9 +50,7 @@ I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 
-USART_HandleTypeDef husart3;
-DMA_HandleTypeDef hdma_usart3_rx;
-DMA_HandleTypeDef hdma_usart3_tx;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 sflp_data_frame_s current_sflp_data;
@@ -62,7 +60,7 @@ extern volatile uint8_t data_received_flag;
 extern volatile uint32_t received_data_length;
 extern volatile uint8_t received_data_buffer[USB_PACKET_SIZE];
 
-uint8_t usart_cmd;
+uint8_t usart_cmd[1];
 uint8_t usart_rx_payload_buf[USART_RX_BUFFER_SIZE];
 
 // Need to replace this with proper attitude control structure
@@ -72,10 +70,9 @@ uint8_t usart_rx_payload_buf[USART_RX_BUFFER_SIZE];
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_USART3_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 static void print_imu_data(sflp_data_frame_s *data);
 static uint8_t calculate_checksum(uint8_t *data, uint8_t length);
@@ -116,10 +113,9 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_I2C2_Init();
   MX_SPI1_Init();
-  MX_USART3_Init();
+  MX_USART3_UART_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
@@ -139,7 +135,7 @@ int main(void)
   }
 
   // Arm USART for commands
-  HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
+  HAL_UART_Receive_IT(&huart3, usart_cmd, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -301,7 +297,7 @@ static void MX_SPI1_Init(void)
   * @param None
   * @retval None
   */
-static void MX_USART3_Init(void)
+static void MX_USART3_UART_Init(void)
 {
 
   /* USER CODE BEGIN USART3_Init 0 */
@@ -311,41 +307,23 @@ static void MX_USART3_Init(void)
   /* USER CODE BEGIN USART3_Init 1 */
 
   /* USER CODE END USART3_Init 1 */
-  husart3.Instance = USART3;
-  husart3.Init.BaudRate = 115200;
-  husart3.Init.WordLength = USART_WORDLENGTH_8B;
-  husart3.Init.StopBits = USART_STOPBITS_1;
-  husart3.Init.Parity = USART_PARITY_NONE;
-  husart3.Init.Mode = USART_MODE_TX_RX;
-  husart3.Init.CLKPolarity = USART_POLARITY_LOW;
-  husart3.Init.CLKPhase = USART_PHASE_1EDGE;
-  husart3.Init.CLKLastBit = USART_LASTBIT_DISABLE;
-  if (HAL_USART_Init(&husart3) != HAL_OK)
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
-
-}
-
-/**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
-  /* DMA1_Channel3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
 
 }
 
@@ -441,25 +419,25 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   }
 }
 
-void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   if (huart->Instance == USART3) {
       // Handle received data
       static CMD_e received_cmd = CMD_NONE;
       static uint8_t awaiting_payload = 0;
       
       if (!awaiting_payload) {
-          received_cmd = (CMD_e)usart_cmd;
+          received_cmd = (CMD_e)usart_cmd[0];
 
           switch (received_cmd) {
               case CMD_SET_ADCS_MODE:
 
-                HAL_USART_Receive_IT(&husart3, usart_rx_payload_buf, SET_ADCS_MODE_PAYLOAD_SIZE);
+                HAL_UART_Receive_IT(&huart3, usart_rx_payload_buf, SET_ADCS_MODE_PAYLOAD_SIZE);
                 awaiting_payload = 1;
 
                 break;
               case CMD_SET_ADCS_TARGET:
 
-                  HAL_USART_Receive_IT(&husart3, usart_rx_payload_buf, SET_ADCS_TARGET_PAYLOAD_SIZE);
+                  HAL_UART_Receive_IT(&huart3, usart_rx_payload_buf, SET_ADCS_TARGET_PAYLOAD_SIZE);
                   awaiting_payload = 1;
 
                   break;
@@ -475,9 +453,9 @@ void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
                   floatToBytes(current_sflp_data.yaw_rate, &sensor_data_payload[4]);
                   floatToBytes(temperature, &sensor_data_payload[8]);
 
-                  HAL_USART_Transmit(&husart3, sensor_data_payload, TELEMETRY_DATA_PAYLOAD_SIZE, 1000);
+                  HAL_UART_Transmit(&huart3, sensor_data_payload, TELEMETRY_DATA_PAYLOAD_SIZE, 1000);
 
-                  HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
+                  HAL_UART_Receive_IT(&huart3, usart_cmd, 1);
                   awaiting_payload = 0;
                   break;
               default:
@@ -495,7 +473,7 @@ void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
                   
                   algo_target_type_e new_target_type = (algo_target_type_e)usart_rx_payload_buf[0];
                   update_target_type(new_target_type);
-                  HAL_USART_Transmit(&husart3, &response, 1, 1000);
+                  HAL_UART_Transmit(&huart3, &response, 1, 1000);
                   break;
               case CMD_SET_ADCS_TARGET:
                   
@@ -503,7 +481,7 @@ void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
 
                   bytesToFloat(usart_rx_payload_buf, &new_target_value);
                   update_target_value(new_target_value);
-                  HAL_USART_Transmit(&husart3, &response, 1, 1000);
+                  HAL_UART_Transmit(&huart3, &response, 1, 1000);
                   break;
               default:
                   // Should not be here, but just in case
@@ -511,9 +489,9 @@ void HAL_USART_RxCpltCallback(USART_HandleTypeDef *huart) {
           }
           
           awaiting_payload = 0;
-          HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
+          HAL_UART_Receive_IT(&huart3, usart_cmd, 1);
       }
-      HAL_USART_Receive_IT(&husart3, &usart_cmd, 1);
+      HAL_UART_Receive_IT(&huart3, usart_cmd, 1);
   }
 }
 

@@ -23,9 +23,6 @@
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
-extern DMA_HandleTypeDef hdma_usart3_rx;
-
-extern DMA_HandleTypeDef hdma_usart3_tx;
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN TD */
@@ -224,15 +221,15 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
 }
 
 /**
-* @brief USART MSP Initialization
+* @brief UART MSP Initialization
 * This function configures the hardware resources used in this example
-* @param husart: USART handle pointer
+* @param huart: UART handle pointer
 * @retval None
 */
-void HAL_USART_MspInit(USART_HandleTypeDef* husart)
+void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(husart->Instance==USART3)
+  if(huart->Instance==USART3)
   {
   /* USER CODE BEGIN USART3_MspInit 0 */
 
@@ -253,39 +250,6 @@ void HAL_USART_MspInit(USART_HandleTypeDef* husart)
     GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    /* USART3 DMA Init */
-    /* USART3_RX Init */
-    hdma_usart3_rx.Instance = DMA1_Channel3;
-    hdma_usart3_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_usart3_rx.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_usart3_rx.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_usart3_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    hdma_usart3_rx.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
-    hdma_usart3_rx.Init.Mode = DMA_NORMAL;
-    hdma_usart3_rx.Init.Priority = DMA_PRIORITY_LOW;
-    if (HAL_DMA_Init(&hdma_usart3_rx) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(husart,hdmarx,hdma_usart3_rx);
-
-    /* USART3_TX Init */
-    hdma_usart3_tx.Instance = DMA1_Channel2;
-    hdma_usart3_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
-    hdma_usart3_tx.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_usart3_tx.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_usart3_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    hdma_usart3_tx.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
-    hdma_usart3_tx.Init.Mode = DMA_NORMAL;
-    hdma_usart3_tx.Init.Priority = DMA_PRIORITY_LOW;
-    if (HAL_DMA_Init(&hdma_usart3_tx) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(husart,hdmatx,hdma_usart3_tx);
-
     /* USART3 interrupt Init */
     HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(USART3_IRQn);
@@ -298,14 +262,14 @@ void HAL_USART_MspInit(USART_HandleTypeDef* husart)
 }
 
 /**
-* @brief USART MSP De-Initialization
+* @brief UART MSP De-Initialization
 * This function freeze the hardware resources used in this example
-* @param husart: USART handle pointer
+* @param huart: UART handle pointer
 * @retval None
 */
-void HAL_USART_MspDeInit(USART_HandleTypeDef* husart)
+void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 {
-  if(husart->Instance==USART3)
+  if(huart->Instance==USART3)
   {
   /* USER CODE BEGIN USART3_MspDeInit 0 */
 
@@ -319,10 +283,6 @@ void HAL_USART_MspDeInit(USART_HandleTypeDef* husart)
     PB12     ------> USART3_CK
     */
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12);
-
-    /* USART3 DMA DeInit */
-    HAL_DMA_DeInit(husart->hdmarx);
-    HAL_DMA_DeInit(husart->hdmatx);
 
     /* USART3 interrupt DeInit */
     HAL_NVIC_DisableIRQ(USART3_IRQn);
