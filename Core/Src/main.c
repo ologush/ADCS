@@ -308,7 +308,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
+  huart3.Init.BaudRate = 4800;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
@@ -441,14 +441,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
                   awaiting_payload = 1;
 
                   break;
-              case CMD_GET_SAT_TELEMETRY_DATA:
+              case CMD_GET_SAT_ADCS_DATA:
                   
                   // For now, can look to add more things such as temperature in the future
                   uint8_t sensor_data_payload[TELEMETRY_DATA_PAYLOAD_SIZE];
 
                   float temperature;
                   get_temperature(&temperature);
-
+                 
                   floatToBytes(current_sflp_data.yaw, &sensor_data_payload[0]);
                   floatToBytes(current_sflp_data.yaw_rate, &sensor_data_payload[4]);
                   floatToBytes(temperature, &sensor_data_payload[8]);
