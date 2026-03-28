@@ -63,6 +63,8 @@ extern volatile uint8_t received_data_buffer[USB_PACKET_SIZE];
 uint8_t usart_cmd[1];
 uint8_t usart_rx_payload_buf[USART_RX_BUFFER_SIZE];
 
+static volatile uint8_t motor_fault_pending = 1;
+
 // Need to replace this with proper attitude control structure
 
 /* USER CODE END PV */
@@ -123,9 +125,10 @@ int main(void)
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-  //HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+  // Turn on Boost converter
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
-  //MCF8315_init(&hi2c2);
+  MCF8315_init(&hi2c2);
   sflp_init_interrupt();
  
   GPIO_PinState fault_status = HAL_GPIO_ReadPin(GPIOB, Motor_Fault_Pin);
@@ -135,7 +138,8 @@ int main(void)
   }
 
   // Arm USART for commands
-  HAL_UART_Receive_IT(&huart3, usart_cmd, 1);
+  //HAL_UART_Receive_IT(&huart3, usart_cmd, 1);
+  
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -145,6 +149,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if (motor_fault_pending == 1) {
+      MCF8315_handle_fault();
+      motor_fault_pending = 0;
+    }
+
     if (data_received_flag) {
         // Process received data
 
@@ -415,7 +424,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
       }
   } else if (GPIO_Pin == Motor_Fault_Pin) {
       // Handle motor fault
-      MCF8315_handle_fault();
+      motor_fault_pending = 1;
   }
 }
 
@@ -494,6 +503,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
       HAL_UART_Receive_IT(&huart3, usart_cmd, 1);
   }
 }
+
+
 
 static void print_imu_data(sflp_data_frame_s *data) {
 
